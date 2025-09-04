@@ -29,303 +29,11 @@
     ]
   },
   {
-    "objectID": "write.html",
-    "href": "write.html",
-    "title": "Write",
-    "section": "",
-    "text": "Writing SEGY files mirrors the reading workflow.\n\nimport numpy as np\nimport pysegy as seg\n\nfh = seg.FileHeader()\nfh.bfh.ns = 2\nfh.bfh.DataSampleFormat = 5\n\n# two traces with minimal headers\nhdr = seg.BinaryTraceHeader()\nhdr.ns = 2\n\ndata = np.array([[1.0], [2.0]], dtype=np.float32)\nblock = seg.SeisBlock(fh, [hdr], data)\n\nseg.segy_write(\"out.segy\", block)\n\nThe pysegy.segy_write helper takes a pysegy.SeisBlock and writes a complete SEGY file to disk.\n\n\n\n Back to top"
-  },
-  {
-    "objectID": "reference/BinaryFileHeader.html",
-    "href": "reference/BinaryFileHeader.html",
-    "title": "BinaryFileHeader",
-    "section": "",
-    "text": "BinaryFileHeader\nBinaryFileHeader(\n    values=lambda: {k: 0for k in FH_FIELDS}(),\n    keys_loaded=lambda: list(FH_FIELDS)(),\n)\nContainer for parsed binary file header values.\n\n\n\n\n Back to top",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "BinaryFileHeader"
-    ]
-  },
-  {
-    "objectID": "reference/plot_sdata.html",
-    "href": "reference/plot_sdata.html",
-    "title": "plot_sdata",
-    "section": "",
-    "text": "plot_sdata\nplot_sdata(image, spacing=None, **kw)\nVisualize a single shot record.\nimage may be a raw ndarray or a :class:SeisBlock or :class:ShotRecord. spacing follows the same rules as in :func:plot_simage.\n\n\n\n\n Back to top",
-    "crumbs": [
-      "API",
-      "Plotting",
-      "plot_sdata"
-    ]
-  },
-  {
-    "objectID": "reference/FileHeader.html",
-    "href": "reference/FileHeader.html",
-    "title": "FileHeader",
-    "section": "",
-    "text": "FileHeader(th=b' ' * 3200, bfh=BinaryFileHeader())\nCombined textual and binary file header.\n\n\n\n\n\nName\nDescription\n\n\n\n\nth\nbytes(iterable_of_ints) -&gt; bytes",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "FileHeader"
-    ]
-  },
-  {
-    "objectID": "reference/FileHeader.html#attributes",
-    "href": "reference/FileHeader.html#attributes",
-    "title": "FileHeader",
-    "section": "",
-    "text": "Name\nDescription\n\n\n\n\nth\nbytes(iterable_of_ints) -&gt; bytes",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "FileHeader"
-    ]
-  },
-  {
-    "objectID": "reference/segy_scan.html",
-    "href": "reference/segy_scan.html",
-    "title": "segy_scan",
-    "section": "",
-    "text": "segy_scan(\n    path,\n    file_key=None,\n    keys=None,\n    chunk=1024,\n    depth_key='SourceDepth',\n    rec_depth_key='GroupWaterDepth',\n    threads=None,\n    fs=None,\n    by_receiver=False,\n)\nScan one or more SEGY files and merge the results.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nDirectory containing SEGY files or a single file path.\nrequired\n\n\nfile_key\nstr\nGlob pattern selecting files within path. When omitted and path points to a file, only that file is scanned.\nNone\n\n\nkeys\nIterable[str]\nAdditional header fields to summarise while scanning.\nNone\n\n\nchunk\nint\nNumber of traces to read per block.\n1024\n\n\ndepth_key\nstr\nHeader name containing the source depth.\n'SourceDepth'\n\n\nrec_depth_key\nstr\nHeader field containing the receiver depth.\n'GroupWaterDepth'\n\n\nby_receiver\nbool\nWhen True, traces are grouped by receiver coordinates rather than by source coordinates.\nFalse\n\n\nfs\nfilesystem-like object\nFilesystem providing open and glob if scanning non-local paths.\nNone\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\n\n\n\n\n\nSegyScan\nCombined scan object describing all detected shots.",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "segy_scan"
-    ]
-  },
-  {
-    "objectID": "reference/segy_scan.html#parameters",
-    "href": "reference/segy_scan.html#parameters",
-    "title": "segy_scan",
-    "section": "",
-    "text": "Name\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nDirectory containing SEGY files or a single file path.\nrequired\n\n\nfile_key\nstr\nGlob pattern selecting files within path. When omitted and path points to a file, only that file is scanned.\nNone\n\n\nkeys\nIterable[str]\nAdditional header fields to summarise while scanning.\nNone\n\n\nchunk\nint\nNumber of traces to read per block.\n1024\n\n\ndepth_key\nstr\nHeader name containing the source depth.\n'SourceDepth'\n\n\nrec_depth_key\nstr\nHeader field containing the receiver depth.\n'GroupWaterDepth'\n\n\nby_receiver\nbool\nWhen True, traces are grouped by receiver coordinates rather than by source coordinates.\nFalse\n\n\nfs\nfilesystem-like object\nFilesystem providing open and glob if scanning non-local paths.\nNone",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "segy_scan"
-    ]
-  },
-  {
-    "objectID": "reference/segy_scan.html#returns",
-    "href": "reference/segy_scan.html#returns",
-    "title": "segy_scan",
-    "section": "",
-    "text": "Name\nType\nDescription\n\n\n\n\n\nSegyScan\nCombined scan object describing all detected shots.",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "segy_scan"
-    ]
-  },
-  {
-    "objectID": "reference/index.html",
-    "href": "reference/index.html",
-    "title": "Function reference",
-    "section": "",
-    "text": "ShotRecord\nInformation about a single shot or receiver gather within a SEGY file.\n\n\nSegyScan\nRepresentation of SEGY data grouped by shot.\n\n\nSeisBlock\nIn-memory representation of a SEGY dataset.\n\n\nsegy_scan\nScan one or more SEGY files and merge the results.\n\n\nsegy_read\nConvenience wrapper to read a SEGY file.\n\n\nsegy_write\nConvenience wrapper to write block to path.\n\n\nsave_scan\nSerialize scan to path.\n\n\nload_scan\nLoad a :class:SegyScan previously saved with :func:save_scan.\n\n\nBinaryFileHeader\nContainer for parsed binary file header values.\n\n\nBinaryTraceHeader\nContainer for parsed binary trace header values.\n\n\nFileHeader\nCombined textual and binary file header.\n\n\n\n\n\n\n\n\n\nplot_simage\nPlot a migrated image with depth on the vertical axis.\n\n\nplot_sdata\nVisualize a single shot record.\n\n\nplot_velocity\nPlot a velocity model.\n\n\nplot_fslice\nDisplay a 2D frequency slice.\n\n\nwiggle_plot\nGenerate a classic wiggle plot for data.\n\n\ncompare_shots\nOverlay or juxtapose two shot gathers for comparison.",
-    "crumbs": [
-      "API",
-      "Function reference"
-    ]
-  },
-  {
-    "objectID": "reference/index.html#pysegy",
-    "href": "reference/index.html#pysegy",
-    "title": "Function reference",
-    "section": "",
-    "text": "ShotRecord\nInformation about a single shot or receiver gather within a SEGY file.\n\n\nSegyScan\nRepresentation of SEGY data grouped by shot.\n\n\nSeisBlock\nIn-memory representation of a SEGY dataset.\n\n\nsegy_scan\nScan one or more SEGY files and merge the results.\n\n\nsegy_read\nConvenience wrapper to read a SEGY file.\n\n\nsegy_write\nConvenience wrapper to write block to path.\n\n\nsave_scan\nSerialize scan to path.\n\n\nload_scan\nLoad a :class:SegyScan previously saved with :func:save_scan.\n\n\nBinaryFileHeader\nContainer for parsed binary file header values.\n\n\nBinaryTraceHeader\nContainer for parsed binary trace header values.\n\n\nFileHeader\nCombined textual and binary file header.",
-    "crumbs": [
-      "API",
-      "Function reference"
-    ]
-  },
-  {
-    "objectID": "reference/index.html#plotting",
-    "href": "reference/index.html#plotting",
-    "title": "Function reference",
-    "section": "",
-    "text": "plot_simage\nPlot a migrated image with depth on the vertical axis.\n\n\nplot_sdata\nVisualize a single shot record.\n\n\nplot_velocity\nPlot a velocity model.\n\n\nplot_fslice\nDisplay a 2D frequency slice.\n\n\nwiggle_plot\nGenerate a classic wiggle plot for data.\n\n\ncompare_shots\nOverlay or juxtapose two shot gathers for comparison.",
-    "crumbs": [
-      "API",
-      "Function reference"
-    ]
-  },
-  {
-    "objectID": "reference/BinaryTraceHeader.html",
-    "href": "reference/BinaryTraceHeader.html",
-    "title": "BinaryTraceHeader",
-    "section": "",
-    "text": "BinaryTraceHeader\nBinaryTraceHeader(values=lambda: {k: 0for k in TH_FIELDS}(), keys_loaded=list())\nContainer for parsed binary trace header values.\n\n\n\n\n Back to top",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "BinaryTraceHeader"
-    ]
-  },
-  {
-    "objectID": "reference/segy_write.html",
-    "href": "reference/segy_write.html",
-    "title": "segy_write",
-    "section": "",
-    "text": "segy_write(path, block, fs=None)\nConvenience wrapper to write block to path.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nDestination file path. When fs is provided the path is interpreted relative to that filesystem.\nrequired\n\n\nblock\nSeisBlock\nDataset to write to disk.\nrequired",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "segy_write"
-    ]
-  },
-  {
-    "objectID": "reference/segy_write.html#parameters",
-    "href": "reference/segy_write.html#parameters",
-    "title": "segy_write",
-    "section": "",
-    "text": "Name\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nDestination file path. When fs is provided the path is interpreted relative to that filesystem.\nrequired\n\n\nblock\nSeisBlock\nDataset to write to disk.\nrequired",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "segy_write"
-    ]
-  },
-  {
-    "objectID": "reference/plot_fslice.html",
-    "href": "reference/plot_fslice.html",
-    "title": "plot_fslice",
-    "section": "",
-    "text": "plot_fslice(image, spacing=None, **kw)\nDisplay a 2D frequency slice.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nimage\narray - like or SeisBlock or ShotRecord\nFrequency-domain slice to plot.\nrequired\n\n\nspacing\n(float, float)\n(dz, dx) sample spacing derived from image when omitted.\nNone",
-    "crumbs": [
-      "API",
-      "Plotting",
-      "plot_fslice"
-    ]
-  },
-  {
-    "objectID": "reference/plot_fslice.html#parameters",
-    "href": "reference/plot_fslice.html#parameters",
-    "title": "plot_fslice",
-    "section": "",
-    "text": "Name\nType\nDescription\nDefault\n\n\n\n\nimage\narray - like or SeisBlock or ShotRecord\nFrequency-domain slice to plot.\nrequired\n\n\nspacing\n(float, float)\n(dz, dx) sample spacing derived from image when omitted.\nNone",
-    "crumbs": [
-      "API",
-      "Plotting",
-      "plot_fslice"
-    ]
-  },
-  {
-    "objectID": "reference/wiggle_plot.html",
-    "href": "reference/wiggle_plot.html",
-    "title": "wiggle_plot",
-    "section": "",
-    "text": "wiggle_plot\nwiggle_plot(data, xrec=None, time_axis=None, *, t_scale=1.5, new_fig=True)\nGenerate a classic wiggle plot for data.\ndata can be an ndarray or seismic container. When xrec or time_axis are omitted they are inferred from the headers when possible.\n\n\n\n\n Back to top",
-    "crumbs": [
-      "API",
-      "Plotting",
-      "wiggle_plot"
-    ]
-  },
-  {
     "objectID": "scan.html",
     "href": "scan.html",
     "title": "Scan",
     "section": "",
     "text": "Scanning allows inspecting large surveys without loading everything in memory.\n\nimport pysegy as seg\n\n# scan all matching files in the repository data directory\ndata_dir = \"../data\"\nscan = seg.segy_scan(data_dir, \"overthrust_2D_shot_*.segy\")\n\nprint(len(scan.shots))  # number of shot records\nprint(scan.counts[0])   # traces in the first shot\n\nThe pysegy.segy_scan function summarises multiple files and returns a pysegy.SegyScan that can lazily read data for each shot. Use by_receiver=True to group traces by receiver coordinates instead of source coordinates.\n\n\n\n Back to top"
-  },
-  {
-    "objectID": "reference/load_scan.html",
-    "href": "reference/load_scan.html",
-    "title": "load_scan",
-    "section": "",
-    "text": "load_scan(path, fs=None)\nLoad a :class:SegyScan previously saved with :func:save_scan.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nFile system path of the saved object. When fs is provided the path is interpreted relative to that filesystem.\nrequired\n\n\nfs\nfilesystem-like object\nFilesystem providing open when reading from non-local storage.\nNone\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\n\n\n\n\n\nSegyScan\nDeserialized scan object.",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "load_scan"
-    ]
-  },
-  {
-    "objectID": "reference/load_scan.html#parameters",
-    "href": "reference/load_scan.html#parameters",
-    "title": "load_scan",
-    "section": "",
-    "text": "Name\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nFile system path of the saved object. When fs is provided the path is interpreted relative to that filesystem.\nrequired\n\n\nfs\nfilesystem-like object\nFilesystem providing open when reading from non-local storage.\nNone",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "load_scan"
-    ]
-  },
-  {
-    "objectID": "reference/load_scan.html#returns",
-    "href": "reference/load_scan.html#returns",
-    "title": "load_scan",
-    "section": "",
-    "text": "Name\nType\nDescription\n\n\n\n\n\nSegyScan\nDeserialized scan object.",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "load_scan"
-    ]
-  },
-  {
-    "objectID": "reference/ShotRecord.html",
-    "href": "reference/ShotRecord.html",
-    "title": "ShotRecord",
-    "section": "",
-    "text": "ShotRecord(\n    path,\n    coordinates,\n    fileheader,\n    rec_depth_key='GroupWaterDepth',\n    depth_key='SourceDepth',\n    by_receiver=False,\n    segments=list(),\n    summary=dict(),\n    ns=0,\n    dt=0,\n    fs=None,\n)\nInformation about a single shot or receiver gather within a SEGY file.\n\n\n\n\n\nName\nDescription\n\n\n\n\nby_receiver\nbool(x) -&gt; bool\n\n\ndepth_key\nstr(object=’’) -&gt; str\n\n\ndt\nint([x]) -&gt; integer\n\n\nns\nint([x]) -&gt; integer\n\n\nrec_coordinates\nArray of receiver coordinates for this gather.\n\n\nrec_depth_key\nstr(object=’’) -&gt; str\n\n\n\n\n\n\n\n\n\nName\nDescription\n\n\n\n\nread_data\nLoad all traces for this shot.\n\n\nread_headers\nRead only the headers for this shot.\n\n\n\n\n\nread_data(keys=None)\nLoad all traces for this shot.\n\n\n\nread_headers(keys=None)\nRead only the headers for this shot.",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "ShotRecord"
-    ]
-  },
-  {
-    "objectID": "reference/ShotRecord.html#attributes",
-    "href": "reference/ShotRecord.html#attributes",
-    "title": "ShotRecord",
-    "section": "",
-    "text": "Name\nDescription\n\n\n\n\nby_receiver\nbool(x) -&gt; bool\n\n\ndepth_key\nstr(object=’’) -&gt; str\n\n\ndt\nint([x]) -&gt; integer\n\n\nns\nint([x]) -&gt; integer\n\n\nrec_coordinates\nArray of receiver coordinates for this gather.\n\n\nrec_depth_key\nstr(object=’’) -&gt; str",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "ShotRecord"
-    ]
-  },
-  {
-    "objectID": "reference/ShotRecord.html#methods",
-    "href": "reference/ShotRecord.html#methods",
-    "title": "ShotRecord",
-    "section": "",
-    "text": "Name\nDescription\n\n\n\n\nread_data\nLoad all traces for this shot.\n\n\nread_headers\nRead only the headers for this shot.\n\n\n\n\n\nread_data(keys=None)\nLoad all traces for this shot.\n\n\n\nread_headers(keys=None)\nRead only the headers for this shot.",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "ShotRecord"
-    ]
-  },
-  {
-    "objectID": "reference/compare_shots.html",
-    "href": "reference/compare_shots.html",
-    "title": "compare_shots",
-    "section": "",
-    "text": "compare_shots(\n    shot1,\n    shot2,\n    spacing=None,\n    *,\n    cmap='gray',\n    side_by_side=False,\n    chunksize=20,\n    **kw,\n)\nOverlay or juxtapose two shot gathers for comparison.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nshot1\narray - like or SeisBlock or ShotRecord\nGather data to compare.\nrequired\n\n\nshot2\narray - like or SeisBlock or ShotRecord\nGather data to compare.\nrequired\n\n\nspacing\n(float, float)\nSpacing applied when not deduced from the inputs.\nNone",
-    "crumbs": [
-      "API",
-      "Plotting",
-      "compare_shots"
-    ]
-  },
-  {
-    "objectID": "reference/compare_shots.html#parameters",
-    "href": "reference/compare_shots.html#parameters",
-    "title": "compare_shots",
-    "section": "",
-    "text": "Name\nType\nDescription\nDefault\n\n\n\n\nshot1\narray - like or SeisBlock or ShotRecord\nGather data to compare.\nrequired\n\n\nshot2\narray - like or SeisBlock or ShotRecord\nGather data to compare.\nrequired\n\n\nspacing\n(float, float)\nSpacing applied when not deduced from the inputs.\nNone",
-    "crumbs": [
-      "API",
-      "Plotting",
-      "compare_shots"
-    ]
   },
   {
     "objectID": "reference/plot_simage.html",
@@ -388,27 +96,324 @@
     ]
   },
   {
-    "objectID": "reference/plot_velocity.html",
-    "href": "reference/plot_velocity.html",
-    "title": "plot_velocity",
+    "objectID": "reference/FileHeader.html",
+    "href": "reference/FileHeader.html",
+    "title": "FileHeader",
     "section": "",
-    "text": "plot_velocity(image, spacing=None, **kw)\nPlot a velocity model.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nimage\narray - like or SeisBlock or ShotRecord\nModel to display.\nrequired\n\n\nspacing\n(float, float)\n(dz, dx) sample spacing derived from image when omitted.\nNone",
+    "text": "FileHeader(th=b' ' * 3200, bfh=BinaryFileHeader())\nCombined textual and binary file header.\n\n\n\n\n\nName\nDescription\n\n\n\n\nth\nbytes(iterable_of_ints) -&gt; bytes",
     "crumbs": [
       "API",
-      "Plotting",
-      "plot_velocity"
+      "pysegy",
+      "FileHeader"
     ]
   },
   {
-    "objectID": "reference/plot_velocity.html#parameters",
-    "href": "reference/plot_velocity.html#parameters",
-    "title": "plot_velocity",
+    "objectID": "reference/FileHeader.html#attributes",
+    "href": "reference/FileHeader.html#attributes",
+    "title": "FileHeader",
     "section": "",
-    "text": "Name\nType\nDescription\nDefault\n\n\n\n\nimage\narray - like or SeisBlock or ShotRecord\nModel to display.\nrequired\n\n\nspacing\n(float, float)\n(dz, dx) sample spacing derived from image when omitted.\nNone",
+    "text": "Name\nDescription\n\n\n\n\nth\nbytes(iterable_of_ints) -&gt; bytes",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "FileHeader"
+    ]
+  },
+  {
+    "objectID": "reference/plot_fslice.html",
+    "href": "reference/plot_fslice.html",
+    "title": "plot_fslice",
+    "section": "",
+    "text": "plot_fslice(image, spacing=None, **kw)\nDisplay a 2D frequency slice.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nimage\narray - like or SeisBlock or ShotRecord\nFrequency-domain slice to plot.\nrequired\n\n\nspacing\n(float, float)\n(dz, dx) sample spacing derived from image when omitted.\nNone",
     "crumbs": [
       "API",
       "Plotting",
-      "plot_velocity"
+      "plot_fslice"
+    ]
+  },
+  {
+    "objectID": "reference/plot_fslice.html#parameters",
+    "href": "reference/plot_fslice.html#parameters",
+    "title": "plot_fslice",
+    "section": "",
+    "text": "Name\nType\nDescription\nDefault\n\n\n\n\nimage\narray - like or SeisBlock or ShotRecord\nFrequency-domain slice to plot.\nrequired\n\n\nspacing\n(float, float)\n(dz, dx) sample spacing derived from image when omitted.\nNone",
+    "crumbs": [
+      "API",
+      "Plotting",
+      "plot_fslice"
+    ]
+  },
+  {
+    "objectID": "reference/segy_scan.html",
+    "href": "reference/segy_scan.html",
+    "title": "segy_scan",
+    "section": "",
+    "text": "segy_scan(\n    path,\n    file_key=None,\n    keys=None,\n    chunk=1024,\n    depth_key='SourceDepth',\n    rec_depth_key='GroupWaterDepth',\n    threads=None,\n    fs=None,\n    by_receiver=False,\n)\nScan one or more SEGY files and merge the results.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nDirectory containing SEGY files or a single file path.\nrequired\n\n\nfile_key\nstr\nGlob pattern selecting files within path. When omitted and path points to a file, only that file is scanned.\nNone\n\n\nkeys\nIterable[str]\nAdditional header fields to summarise while scanning.\nNone\n\n\nchunk\nint\nNumber of traces to read per block.\n1024\n\n\ndepth_key\nstr\nHeader name containing the source depth.\n'SourceDepth'\n\n\nrec_depth_key\nstr\nHeader field containing the receiver depth.\n'GroupWaterDepth'\n\n\nby_receiver\nbool\nWhen True, traces are grouped by receiver coordinates rather than by source coordinates.\nFalse\n\n\nfs\nfilesystem-like object\nFilesystem providing open and glob if scanning non-local paths.\nNone\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\n\n\n\n\n\nSegyScan\nCombined scan object describing all detected shots.",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "segy_scan"
+    ]
+  },
+  {
+    "objectID": "reference/segy_scan.html#parameters",
+    "href": "reference/segy_scan.html#parameters",
+    "title": "segy_scan",
+    "section": "",
+    "text": "Name\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nDirectory containing SEGY files or a single file path.\nrequired\n\n\nfile_key\nstr\nGlob pattern selecting files within path. When omitted and path points to a file, only that file is scanned.\nNone\n\n\nkeys\nIterable[str]\nAdditional header fields to summarise while scanning.\nNone\n\n\nchunk\nint\nNumber of traces to read per block.\n1024\n\n\ndepth_key\nstr\nHeader name containing the source depth.\n'SourceDepth'\n\n\nrec_depth_key\nstr\nHeader field containing the receiver depth.\n'GroupWaterDepth'\n\n\nby_receiver\nbool\nWhen True, traces are grouped by receiver coordinates rather than by source coordinates.\nFalse\n\n\nfs\nfilesystem-like object\nFilesystem providing open and glob if scanning non-local paths.\nNone",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "segy_scan"
+    ]
+  },
+  {
+    "objectID": "reference/segy_scan.html#returns",
+    "href": "reference/segy_scan.html#returns",
+    "title": "segy_scan",
+    "section": "",
+    "text": "Name\nType\nDescription\n\n\n\n\n\nSegyScan\nCombined scan object describing all detected shots.",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "segy_scan"
+    ]
+  },
+  {
+    "objectID": "reference/plot_sdata.html",
+    "href": "reference/plot_sdata.html",
+    "title": "plot_sdata",
+    "section": "",
+    "text": "plot_sdata\nplot_sdata(image, spacing=None, **kw)\nVisualize a single shot record.\nimage may be a raw ndarray or a :class:SeisBlock or :class:ShotRecord. spacing follows the same rules as in :func:plot_simage.\n\n\n\n\n Back to top",
+    "crumbs": [
+      "API",
+      "Plotting",
+      "plot_sdata"
+    ]
+  },
+  {
+    "objectID": "reference/save_scan.html",
+    "href": "reference/save_scan.html",
+    "title": "save_scan",
+    "section": "",
+    "text": "save_scan(path, scan, fs=None)\nSerialize scan to path.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nDestination file path. When fs is provided the path is interpreted relative to that filesystem.\nrequired\n\n\nscan\nSegyScan\nObject to serialize.\nrequired\n\n\nfs\nfilesystem-like object\nFilesystem providing open when writing to non-local storage.\nNone",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "save_scan"
+    ]
+  },
+  {
+    "objectID": "reference/save_scan.html#parameters",
+    "href": "reference/save_scan.html#parameters",
+    "title": "save_scan",
+    "section": "",
+    "text": "Name\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nDestination file path. When fs is provided the path is interpreted relative to that filesystem.\nrequired\n\n\nscan\nSegyScan\nObject to serialize.\nrequired\n\n\nfs\nfilesystem-like object\nFilesystem providing open when writing to non-local storage.\nNone",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "save_scan"
+    ]
+  },
+  {
+    "objectID": "reference/BinaryFileHeader.html",
+    "href": "reference/BinaryFileHeader.html",
+    "title": "BinaryFileHeader",
+    "section": "",
+    "text": "BinaryFileHeader\nBinaryFileHeader(\n    values=(lambda: {k: 0for k in FH_FIELDS})(),\n    keys_loaded=(lambda: list(FH_FIELDS))(),\n)\nContainer for parsed binary file header values.\n\n\n\n\n Back to top",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "BinaryFileHeader"
+    ]
+  },
+  {
+    "objectID": "reference/wiggle_plot.html",
+    "href": "reference/wiggle_plot.html",
+    "title": "wiggle_plot",
+    "section": "",
+    "text": "wiggle_plot\nwiggle_plot(data, xrec=None, time_axis=None, *, t_scale=1.5, new_fig=True)\nGenerate a classic wiggle plot for data.\ndata can be an ndarray or seismic container. When xrec or time_axis are omitted they are inferred from the headers when possible.\n\n\n\n\n Back to top",
+    "crumbs": [
+      "API",
+      "Plotting",
+      "wiggle_plot"
+    ]
+  },
+  {
+    "objectID": "reference/load_scan.html",
+    "href": "reference/load_scan.html",
+    "title": "load_scan",
+    "section": "",
+    "text": "load_scan(path, fs=None)\nLoad a :class:SegyScan previously saved with :func:save_scan.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nFile system path of the saved object. When fs is provided the path is interpreted relative to that filesystem.\nrequired\n\n\nfs\nfilesystem-like object\nFilesystem providing open when reading from non-local storage.\nNone\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\n\n\n\n\n\nSegyScan\nDeserialized scan object.",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "load_scan"
+    ]
+  },
+  {
+    "objectID": "reference/load_scan.html#parameters",
+    "href": "reference/load_scan.html#parameters",
+    "title": "load_scan",
+    "section": "",
+    "text": "Name\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nFile system path of the saved object. When fs is provided the path is interpreted relative to that filesystem.\nrequired\n\n\nfs\nfilesystem-like object\nFilesystem providing open when reading from non-local storage.\nNone",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "load_scan"
+    ]
+  },
+  {
+    "objectID": "reference/load_scan.html#returns",
+    "href": "reference/load_scan.html#returns",
+    "title": "load_scan",
+    "section": "",
+    "text": "Name\nType\nDescription\n\n\n\n\n\nSegyScan\nDeserialized scan object.",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "load_scan"
+    ]
+  },
+  {
+    "objectID": "reference/compare_shots.html",
+    "href": "reference/compare_shots.html",
+    "title": "compare_shots",
+    "section": "",
+    "text": "compare_shots(\n    shot1,\n    shot2,\n    spacing=None,\n    *,\n    cmap='gray',\n    side_by_side=False,\n    chunksize=20,\n    **kw,\n)\nOverlay or juxtapose two shot gathers for comparison.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nshot1\narray - like or SeisBlock or ShotRecord\nGather data to compare.\nrequired\n\n\nshot2\narray - like or SeisBlock or ShotRecord\nGather data to compare.\nrequired\n\n\nspacing\n(float, float)\nSpacing applied when not deduced from the inputs.\nNone",
+    "crumbs": [
+      "API",
+      "Plotting",
+      "compare_shots"
+    ]
+  },
+  {
+    "objectID": "reference/compare_shots.html#parameters",
+    "href": "reference/compare_shots.html#parameters",
+    "title": "compare_shots",
+    "section": "",
+    "text": "Name\nType\nDescription\nDefault\n\n\n\n\nshot1\narray - like or SeisBlock or ShotRecord\nGather data to compare.\nrequired\n\n\nshot2\narray - like or SeisBlock or ShotRecord\nGather data to compare.\nrequired\n\n\nspacing\n(float, float)\nSpacing applied when not deduced from the inputs.\nNone",
+    "crumbs": [
+      "API",
+      "Plotting",
+      "compare_shots"
+    ]
+  },
+  {
+    "objectID": "reference/ShotRecord.html",
+    "href": "reference/ShotRecord.html",
+    "title": "ShotRecord",
+    "section": "",
+    "text": "ShotRecord(\n    path,\n    coordinates,\n    fileheader,\n    rec_depth_key='GroupWaterDepth',\n    depth_key='SourceDepth',\n    by_receiver=False,\n    segments=list(),\n    summary=dict(),\n    ns=0,\n    dt=0,\n    fs=None,\n)\nInformation about a single shot or receiver gather within a SEGY file.\n\n\n\n\n\nName\nDescription\n\n\n\n\nby_receiver\nbool(x) -&gt; bool\n\n\ndepth_key\nstr(object=’’) -&gt; str\n\n\ndt\nint([x]) -&gt; integer\n\n\nns\nint([x]) -&gt; integer\n\n\nrec_coordinates\nArray of receiver coordinates for this gather.\n\n\nrec_depth_key\nstr(object=’’) -&gt; str\n\n\n\n\n\n\n\n\n\nName\nDescription\n\n\n\n\nread_data\nLoad all traces for this shot.\n\n\nread_headers\nRead only the headers for this shot.\n\n\n\n\n\nread_data(keys=None)\nLoad all traces for this shot.\n\n\n\nread_headers(keys=None)\nRead only the headers for this shot.",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "ShotRecord"
+    ]
+  },
+  {
+    "objectID": "reference/ShotRecord.html#attributes",
+    "href": "reference/ShotRecord.html#attributes",
+    "title": "ShotRecord",
+    "section": "",
+    "text": "Name\nDescription\n\n\n\n\nby_receiver\nbool(x) -&gt; bool\n\n\ndepth_key\nstr(object=’’) -&gt; str\n\n\ndt\nint([x]) -&gt; integer\n\n\nns\nint([x]) -&gt; integer\n\n\nrec_coordinates\nArray of receiver coordinates for this gather.\n\n\nrec_depth_key\nstr(object=’’) -&gt; str",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "ShotRecord"
+    ]
+  },
+  {
+    "objectID": "reference/ShotRecord.html#methods",
+    "href": "reference/ShotRecord.html#methods",
+    "title": "ShotRecord",
+    "section": "",
+    "text": "Name\nDescription\n\n\n\n\nread_data\nLoad all traces for this shot.\n\n\nread_headers\nRead only the headers for this shot.\n\n\n\n\n\nread_data(keys=None)\nLoad all traces for this shot.\n\n\n\nread_headers(keys=None)\nRead only the headers for this shot.",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "ShotRecord"
+    ]
+  },
+  {
+    "objectID": "reference/SeisBlock.html",
+    "href": "reference/SeisBlock.html",
+    "title": "SeisBlock",
+    "section": "",
+    "text": "SeisBlock\nSeisBlock(fileheader, traceheaders, data)\nIn-memory representation of a SEGY dataset.\n\n\n\n\n Back to top",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "SeisBlock"
+    ]
+  },
+  {
+    "objectID": "reference/index.html",
+    "href": "reference/index.html",
+    "title": "Function reference",
+    "section": "",
+    "text": "ShotRecord\nInformation about a single shot or receiver gather within a SEGY file.\n\n\nSegyScan\nRepresentation of SEGY data grouped by shot.\n\n\nSeisBlock\nIn-memory representation of a SEGY dataset.\n\n\nsegy_scan\nScan one or more SEGY files and merge the results.\n\n\nsegy_read\nConvenience wrapper to read a SEGY file.\n\n\nsegy_write\nConvenience wrapper to write block to path.\n\n\nsave_scan\nSerialize scan to path.\n\n\nload_scan\nLoad a :class:SegyScan previously saved with :func:save_scan.\n\n\nBinaryFileHeader\nContainer for parsed binary file header values.\n\n\nBinaryTraceHeader\nContainer for parsed binary trace header values.\n\n\nFileHeader\nCombined textual and binary file header.\n\n\n\n\n\n\n\n\n\nplot_simage\nPlot a migrated image with depth on the vertical axis.\n\n\nplot_sdata\nVisualize a single shot record.\n\n\nplot_velocity\nPlot a velocity model.\n\n\nplot_fslice\nDisplay a 2D frequency slice.\n\n\nwiggle_plot\nGenerate a classic wiggle plot for data.\n\n\ncompare_shots\nOverlay or juxtapose two shot gathers for comparison.",
+    "crumbs": [
+      "API",
+      "Function reference"
+    ]
+  },
+  {
+    "objectID": "reference/index.html#pysegy",
+    "href": "reference/index.html#pysegy",
+    "title": "Function reference",
+    "section": "",
+    "text": "ShotRecord\nInformation about a single shot or receiver gather within a SEGY file.\n\n\nSegyScan\nRepresentation of SEGY data grouped by shot.\n\n\nSeisBlock\nIn-memory representation of a SEGY dataset.\n\n\nsegy_scan\nScan one or more SEGY files and merge the results.\n\n\nsegy_read\nConvenience wrapper to read a SEGY file.\n\n\nsegy_write\nConvenience wrapper to write block to path.\n\n\nsave_scan\nSerialize scan to path.\n\n\nload_scan\nLoad a :class:SegyScan previously saved with :func:save_scan.\n\n\nBinaryFileHeader\nContainer for parsed binary file header values.\n\n\nBinaryTraceHeader\nContainer for parsed binary trace header values.\n\n\nFileHeader\nCombined textual and binary file header.",
+    "crumbs": [
+      "API",
+      "Function reference"
+    ]
+  },
+  {
+    "objectID": "reference/index.html#plotting",
+    "href": "reference/index.html#plotting",
+    "title": "Function reference",
+    "section": "",
+    "text": "plot_simage\nPlot a migrated image with depth on the vertical axis.\n\n\nplot_sdata\nVisualize a single shot record.\n\n\nplot_velocity\nPlot a velocity model.\n\n\nplot_fslice\nDisplay a 2D frequency slice.\n\n\nwiggle_plot\nGenerate a classic wiggle plot for data.\n\n\ncompare_shots\nOverlay or juxtapose two shot gathers for comparison.",
+    "crumbs": [
+      "API",
+      "Function reference"
+    ]
+  },
+  {
+    "objectID": "reference/segy_write.html",
+    "href": "reference/segy_write.html",
+    "title": "segy_write",
+    "section": "",
+    "text": "segy_write(path, block, fs=None)\nConvenience wrapper to write block to path.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nDestination file path. When fs is provided the path is interpreted relative to that filesystem.\nrequired\n\n\nblock\nSeisBlock\nDataset to write to disk.\nrequired",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "segy_write"
+    ]
+  },
+  {
+    "objectID": "reference/segy_write.html#parameters",
+    "href": "reference/segy_write.html#parameters",
+    "title": "segy_write",
+    "section": "",
+    "text": "Name\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nDestination file path. When fs is provided the path is interpreted relative to that filesystem.\nrequired\n\n\nblock\nSeisBlock\nDataset to write to disk.\nrequired",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "segy_write"
+    ]
+  },
+  {
+    "objectID": "reference/BinaryTraceHeader.html",
+    "href": "reference/BinaryTraceHeader.html",
+    "title": "BinaryTraceHeader",
+    "section": "",
+    "text": "BinaryTraceHeader\nBinaryTraceHeader(\n    values=(lambda: {k: 0for k in TH_FIELDS})(),\n    keys_loaded=list(),\n)\nContainer for parsed binary trace header values.\n\n\n\n\n Back to top",
+    "crumbs": [
+      "API",
+      "pysegy",
+      "BinaryTraceHeader"
     ]
   },
   {
@@ -460,40 +465,35 @@
     ]
   },
   {
-    "objectID": "reference/SeisBlock.html",
-    "href": "reference/SeisBlock.html",
-    "title": "SeisBlock",
+    "objectID": "reference/plot_velocity.html",
+    "href": "reference/plot_velocity.html",
+    "title": "plot_velocity",
     "section": "",
-    "text": "SeisBlock\nSeisBlock(fileheader, traceheaders, data)\nIn-memory representation of a SEGY dataset.\n\n\n\n\n Back to top",
+    "text": "plot_velocity(image, spacing=None, **kw)\nPlot a velocity model.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\nimage\narray - like or SeisBlock or ShotRecord\nModel to display.\nrequired\n\n\nspacing\n(float, float)\n(dz, dx) sample spacing derived from image when omitted.\nNone",
     "crumbs": [
       "API",
-      "pysegy",
-      "SeisBlock"
+      "Plotting",
+      "plot_velocity"
     ]
   },
   {
-    "objectID": "reference/save_scan.html",
-    "href": "reference/save_scan.html",
-    "title": "save_scan",
+    "objectID": "reference/plot_velocity.html#parameters",
+    "href": "reference/plot_velocity.html#parameters",
+    "title": "plot_velocity",
     "section": "",
-    "text": "save_scan(path, scan, fs=None)\nSerialize scan to path.\n\n\n\n\n\n\n\n\n\n\n\nName\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nDestination file path. When fs is provided the path is interpreted relative to that filesystem.\nrequired\n\n\nscan\nSegyScan\nObject to serialize.\nrequired\n\n\nfs\nfilesystem-like object\nFilesystem providing open when writing to non-local storage.\nNone",
+    "text": "Name\nType\nDescription\nDefault\n\n\n\n\nimage\narray - like or SeisBlock or ShotRecord\nModel to display.\nrequired\n\n\nspacing\n(float, float)\n(dz, dx) sample spacing derived from image when omitted.\nNone",
     "crumbs": [
       "API",
-      "pysegy",
-      "save_scan"
+      "Plotting",
+      "plot_velocity"
     ]
   },
   {
-    "objectID": "reference/save_scan.html#parameters",
-    "href": "reference/save_scan.html#parameters",
-    "title": "save_scan",
+    "objectID": "write.html",
+    "href": "write.html",
+    "title": "Write",
     "section": "",
-    "text": "Name\nType\nDescription\nDefault\n\n\n\n\npath\nstr\nDestination file path. When fs is provided the path is interpreted relative to that filesystem.\nrequired\n\n\nscan\nSegyScan\nObject to serialize.\nrequired\n\n\nfs\nfilesystem-like object\nFilesystem providing open when writing to non-local storage.\nNone",
-    "crumbs": [
-      "API",
-      "pysegy",
-      "save_scan"
-    ]
+    "text": "Writing SEGY files mirrors the reading workflow.\n\nimport numpy as np\nimport pysegy as seg\n\nfh = seg.FileHeader()\nfh.bfh.ns = 2\nfh.bfh.DataSampleFormat = 5\n\n# two traces with minimal headers\nhdr = seg.BinaryTraceHeader()\nhdr.ns = 2\n\ndata = np.array([[1.0], [2.0]], dtype=np.float32)\nblock = seg.SeisBlock(fh, [hdr], data)\n\nseg.segy_write(\"out.segy\", block)\n\nThe pysegy.segy_write helper takes a pysegy.SeisBlock and writes a complete SEGY file to disk.\n\n\n\n Back to top"
   },
   {
     "objectID": "index.html",
@@ -529,16 +529,6 @@
     "title": "pysegy",
     "section": "",
     "text": "This project started as a lightweight port of the Julia package SegyIO.jl. The goal is to provide a similar user experience for Python while keeping the code base small and easy to understand."
-  },
-  {
-    "objectID": "tutorial/index.html",
-    "href": "tutorial/index.html",
-    "title": "Tutorial",
-    "section": "",
-    "text": "Tutorials show how to use pysegy in practice.\n\n\n\n Back to top",
-    "crumbs": [
-      "Tutorials"
-    ]
   },
   {
     "objectID": "tutorial/read_write_tutorial.html",
@@ -593,6 +583,16 @@
     "crumbs": [
       "Tutorials",
       "Read and Write SEGY files with pysegy"
+    ]
+  },
+  {
+    "objectID": "tutorial/index.html",
+    "href": "tutorial/index.html",
+    "title": "Tutorial",
+    "section": "",
+    "text": "Tutorials show how to use pysegy in practice.\n\n\n\n Back to top",
+    "crumbs": [
+      "Tutorials"
     ]
   }
 ]
