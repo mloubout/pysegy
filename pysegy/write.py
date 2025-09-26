@@ -6,6 +6,7 @@ import struct
 from typing import BinaryIO
 
 from .utils import pack_int, struct_fmt, write_samples, open_file
+from . import vprint
 from .types import (
     SeisBlock,
     FileHeader,
@@ -101,8 +102,8 @@ def segy_write(path: str, block: SeisBlock, fs=None) -> None:
     block : SeisBlock
         Dataset to write to disk.
     """
-    print(f"Writing SEGY file {path}")
+    vprint(f"Writing SEGY file {path}")
 
     with open_file(path, "wb", fs) as f:
         write_block(f, block)
-    print(f"Finished writing {path}")
+    vprint(f"Finished writing {path}")

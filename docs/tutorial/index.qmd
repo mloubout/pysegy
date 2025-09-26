@@ -1,10 +1,5 @@
 ---
 title: Tutorial
-sidebar:
-  style: docked
-  contents:
-    - ../../notebooks/bp_scan_tutorial.ipynb
-    - ../../notebooks/read_write_tutorial.ipynb
 ---
 
 Tutorials show how to use **pysegy** in practice.

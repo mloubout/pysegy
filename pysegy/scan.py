@@ -21,6 +21,7 @@ from .types import (
     BinaryTraceHeader,
     TH_BYTE2SAMPLE,
 )
+from . import vprint
 
 
 @dataclass
@@ -438,7 +439,7 @@ def _scan_file(
         Object describing all shots found in ``path``.
     """
     thread = threading.current_thread().name
-    print(f"{thread} scanning file {path}")
+    vprint(f"{thread} scanning file {path}")
     trace_keys = [
         "SourceX",
         "SourceY",
@@ -456,7 +457,7 @@ def _scan_file(
 
     with open_file(path, "rb", fs) as f:
         fh = read_fileheader(f)
-        print(f"Header for {path}: ns={fh.bfh.ns} dt={fh.bfh.dt}")
+        vprint(f"Header for {path}: ns={fh.bfh.ns} dt={fh.bfh.dt}")
         ns = fh.bfh.ns
         f.seek(0, os.SEEK_END)
         total = (f.tell() - 3600) // (240 + ns * 4)
@@ -525,7 +526,7 @@ def _scan_file(
             records[previous].segments.append((seg_start, seg_count))
 
     record_list = sorted(records.values(), key=lambda r: r.coordinates)
-    print(f"{thread} found {len(record_list)} shots in {path}")
+    vprint(f"{thread} found {len(record_list)} shots in {path}")
     return SegyScan(fh, record_list, fs=fs)
 
 
@@ -594,7 +595,7 @@ def segy_scan(
             files = fs.glob(f"{directory.rstrip('/')}/{pattern}")
     files.sort()
 
-    print(
+    vprint(
         f"Scanning {len(files)} files in {directory} with {threads} threads"
     )
     records: List[ShotRecord] = []
@@ -622,7 +623,7 @@ def segy_scan(
 
     records.sort(key=lambda r: r.coordinates)
 
-    print(f"Combined scan has {len(records)} shots")
+    vprint(f"Combined scan has {len(records)} shots")
     return SegyScan(fh, records, fs=fs)
 
 
@@ -640,10 +641,10 @@ def save_scan(path: str, scan: SegyScan, fs=None) -> None:
     fs : filesystem-like object, optional
         Filesystem providing ``open`` when writing to non-local storage.
     """
-    print(f"Saving SegyScan to {path}")
+    vprint(f"Saving SegyScan to {path}")
     with open_file(path, "wb", fs) as f:
         cloudpickle.dump(scan, f, protocol=cloudpickle.DEFAULT_PROTOCOL)
-    print(f"Finished saving {path}")
+    vprint(f"Finished saving {path}")
 
 
 def load_scan(path: str, fs=None) -> SegyScan:
@@ -663,7 +664,7 @@ def load_scan(path: str, fs=None) -> SegyScan:
     SegyScan
         Deserialized scan object.
     """
-    print(f"Loading SegyScan from {path}")
+    vprint(f"Loading SegyScan from {path}")
     with open_file(path, "rb", fs) as f:
         scan = cloudpickle.load(f)
 
@@ -674,5 +675,5 @@ def load_scan(path: str, fs=None) -> SegyScan:
         for rec in scan.records:
             rec.fs = fs
 
-    print(f"Loaded SegyScan with {len(scan.records)} shots")
+    vprint(f"Loaded SegyScan with {len(scan.records)} shots")
     return scan

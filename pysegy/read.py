@@ -15,6 +15,7 @@ import numpy as np
 from concurrent.futures import ThreadPoolExecutor
 
 from .utils import read_samples, unpack_int, open_file
+from . import vprint
 
 # Number of traces to read at a time when loading an entire file
 TRACE_CHUNKSIZE = 512
@@ -238,11 +239,11 @@ def segy_read(
     SeisBlock
         Loaded dataset.
     """
-    print(f"Reading SEGY file {path}")
+    vprint(f"Reading SEGY file {path}")
 
     with open_file(path, "rb", fs) as f:
         block = read_file(f, keys=keys, workers=workers)
-    print(
+    vprint(
         f"Loaded header ns={block.fileheader.bfh.ns} "
         f"dt={block.fileheader.bfh.dt} from {path}"
     )
