@@ -2,13 +2,15 @@
 Utility helpers shared across the :mod:`pysegy` package.
 """
 
-from typing import BinaryIO, Iterable, List, Union
 from contextlib import contextmanager
-import struct
 from functools import lru_cache
+import os
+import struct
+from typing import BinaryIO, Iterable, List, Tuple, Union
+
 import numpy as np
 
-from .types import BinaryTraceHeader, SeisBlock
+from .types import BinaryTraceHeader, FH_BYTE2SAMPLE, SeisBlock, TH_BYTE2SAMPLE
 from .ibm import ibm_to_ieee_array, ieee_to_ibm
 
 _RECSRC_FIELDS = {
@@ -29,6 +31,21 @@ _ELEV_FIELDS = {
     "SourceWaterDepth",
     "GroupWaterDepth",
 }
+
+_SOURCE_DEPTH_FIELDS: Tuple[str, ...] = (
+    "SourceDepth",
+    "SourceWaterDepth",
+    "SourceDatumElevation",
+    "SourceSurfaceElevation",
+)
+
+_RECEIVER_DEPTH_FIELDS: Tuple[str, ...] = (
+    "GroupWaterDepth",
+    "RecGroupElevation",
+    "RecDatumElevation",
+)
+
+_DEPTH_SENTINELS = {0, 2147483647, -2147483648, 32767, -32768}
 
 
 def _check_scale(name: str) -> tuple[bool, str]:
@@ -133,6 +150,102 @@ def get_header(
     return vals
 
 
+def _depth_score(values: Iterable[float]) -> Tuple[int, float]:
+    cleaned: List[float] = []
+    for val in values:
+        fval = float(val)
+        if fval in _DEPTH_SENTINELS:
+            continue
+        cleaned.append(fval)
+    if not cleaned:
+        return (0, 0.0)
+    arr = np.asarray(cleaned, dtype=float)
+    span = float(np.max(arr) - np.min(arr))
+    if span == 0.0:
+        span = float(np.max(np.abs(arr)))
+    return (len(cleaned), span)
+
+
+def detect_depth_keys(
+    path: str,
+    *,
+    fs=None,
+    max_traces: int = 32,
+) -> Tuple[str, str]:
+    """
+    Inspect ``path`` and infer source and receiver depth header names.
+
+    Parameters
+    ----------
+    path : str
+        SEGY file to inspect.
+    fs : optional
+        Optional filesystem object used to open ``path``.
+    max_traces : int, optional
+        Maximum number of leading trace headers to inspect.
+
+    Returns
+    -------
+    tuple[str, str]
+        ``(source_key, receiver_key)`` header names. Defaults to
+        ``("SourceDepth", "GroupWaterDepth")`` when no better match is
+        found.
+    """
+
+    source_key = _SOURCE_DEPTH_FIELDS[0]
+    receiver_key = _RECEIVER_DEPTH_FIELDS[0]
+
+    ordered_keys = list(
+        dict.fromkeys(
+            list(_SOURCE_DEPTH_FIELDS)
+            + list(_RECEIVER_DEPTH_FIELDS)
+            + ["ElevationScalar", "RecSourceScalar"],
+        )
+    )
+
+    with open_file(path, "rb", fs) as f:
+        file_header_bytes = f.read(3600)
+        ns_offset = FH_BYTE2SAMPLE["ns"]
+        ns = max(struct.unpack_from(">h", file_header_bytes, ns_offset)[0], 0)
+        step = ns * 4
+
+        headers: List[BinaryTraceHeader] = []
+        for _ in range(max_traces):
+            hdr_bytes = f.read(240)
+            if len(hdr_bytes) < 240:
+                break
+            th = BinaryTraceHeader()
+            for key in ordered_keys:
+                offset, size = TH_BYTE2SAMPLE[key]
+                fmt = ">i" if size == 4 else ">h"
+                val = struct.unpack_from(fmt, hdr_bytes, offset)[0]
+                setattr(th, key, val)
+            th.keys_loaded = list(ordered_keys)
+            headers.append(th)
+            if step:
+                f.seek(step, os.SEEK_CUR)
+        if not headers:
+            return source_key, receiver_key
+
+    best_source_score = (0, 0.0)
+    for candidate in _SOURCE_DEPTH_FIELDS:
+        vals = get_header(headers, candidate)
+        score = _depth_score(vals)
+        if score > best_source_score:
+            best_source_score = score
+            source_key = candidate
+
+    best_receiver_score = (0, 0.0)
+    for candidate in _RECEIVER_DEPTH_FIELDS:
+        vals = get_header(headers, candidate)
+        score = _depth_score(vals)
+        if score > best_receiver_score:
+            best_receiver_score = score
+            receiver_key = candidate
+
+    return source_key, receiver_key
+
+
 __all__ = [
     "get_header",
     "open_file",
@@ -141,4 +254,5 @@ __all__ = [
     "struct_fmt",
     "pack_int",
     "unpack_int",
+    "detect_depth_keys",
 ]

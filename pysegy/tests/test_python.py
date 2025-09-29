@@ -1,10 +1,12 @@
-import os
-from io import BytesIO
 import gzip
-import urllib.request
+import os
 import shutil
+from io import BytesIO
+import urllib.request
+
 import fsspec
 import numpy as np
+import pytest
 
 import pysegy as seg  # noqa: E402
 from pysegy.ibm import ibm_to_ieee  # noqa: E402
@@ -318,7 +320,9 @@ def test_rec_coordinates():
     rec = scan[0]
     coords = rec.rec_coordinates
     assert coords.shape[0] == scan.counts[0]
-    assert tuple(coords[0]) == (100.0, 0.0, 0.0)
+    assert coords[0, 0] == pytest.approx(100.0)
+    assert coords[0, 1] == pytest.approx(0.0)
+    assert coords[0, 2] == pytest.approx(500.0)
 
 
 def test_get_header_scaling():

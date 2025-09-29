@@ -2,26 +2,26 @@
 Helpers for scanning SEGY files by shot location.
 """
 
-from typing import Any, Dict, Iterable, List, Optional, Tuple
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import os
-import threading
-
-import fnmatch
 from dataclasses import dataclass, field
+import fnmatch
+import os
 import struct
-import numpy as np
-import cloudpickle
+import threading
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+import cloudpickle
+import numpy as np
+
+from . import vprint
 from .read import read_fileheader, read_traceheader, read_traces
-from .utils import get_header, open_file
 from .types import (
-    SeisBlock,
-    FileHeader,
     BinaryTraceHeader,
+    FileHeader,
+    SeisBlock,
     TH_BYTE2SAMPLE,
 )
-from . import vprint
+from .utils import detect_depth_keys, get_header, open_file
 
 
 @dataclass
@@ -407,8 +407,8 @@ def _scan_file(
     path: str,
     keys: Optional[Iterable[str]] = None,
     chunk: int = 1024,
-    depth_key: str = "SourceDepth",
-    rec_depth_key: str = "GroupWaterDepth",
+    depth_key: Optional[str] = None,
+    rec_depth_key: Optional[str] = None,
     fs=None,
     by_receiver: bool = False,
 ) -> SegyScan:
@@ -424,9 +424,11 @@ def _scan_file(
     chunk : int, optional
         Number of traces to read at once.
     depth_key : str, optional
-        Trace header field giving the source depth.
+        Trace header field giving the source depth. When ``None`` the header is
+        inferred by examining the initial trace headers in the file.
     rec_depth_key : str, optional
-        Header field giving the receiver depth.
+        Header field giving the receiver depth. When ``None`` the header is
+        inferred alongside ``depth_key``.
     by_receiver : bool, optional
         Group traces by receiver coordinates instead of source coordinates.
 
@@ -440,6 +442,18 @@ def _scan_file(
     """
     thread = threading.current_thread().name
     vprint(f"{thread} scanning file {path}")
+    if depth_key is None or rec_depth_key is None:
+        detected_source, detected_receiver = detect_depth_keys(path, fs=fs)
+        if depth_key is None:
+            depth_key = detected_source
+        if rec_depth_key is None:
+            rec_depth_key = detected_receiver
+
+    vprint(
+        f"{thread} using depth_key='{depth_key}' rec_depth_key='{rec_depth_key}'"
+        f" for {path}"
+    )
+
     trace_keys = [
         "SourceX",
         "SourceY",
@@ -535,8 +549,8 @@ def segy_scan(
     file_key: Optional[str] = None,
     keys: Optional[Iterable[str]] = None,
     chunk: int = 1024,
-    depth_key: str = "SourceDepth",
-    rec_depth_key: str = "GroupWaterDepth",
+    depth_key: Optional[str] = None,
+    rec_depth_key: Optional[str] = None,
     threads: Optional[int] = None,
     fs=None,
     by_receiver: bool = False,
@@ -556,9 +570,11 @@ def segy_scan(
     chunk : int, optional
         Number of traces to read per block.
     depth_key : str, optional
-        Header name containing the source depth.
+        Header name containing the source depth. When ``None`` the field is
+        detected automatically.
     rec_depth_key : str, optional
-        Header field containing the receiver depth.
+        Header field containing the receiver depth. When ``None`` the field is
+        detected automatically.
     by_receiver : bool, optional
         When ``True``, traces are grouped by receiver coordinates rather than
         by source coordinates.

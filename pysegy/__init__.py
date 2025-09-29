@@ -30,7 +30,7 @@ from .write import (
     write_block,
     segy_write,
 )
-from .utils import get_header
+from .utils import get_header, detect_depth_keys
 from .plotting import (
     plot_simage,
     plot_velocity,
@@ -60,6 +60,7 @@ __all__ = [
     "write_block",
     "segy_write",
     "get_header",
+    "detect_depth_keys",
     "plot_simage",
     "plot_velocity",
     "plot_fslice",
