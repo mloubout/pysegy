@@ -1,0 +1,4 @@
+prune data
+prune docs
+prune notebooks
+prune benchmarks
