@@ -277,7 +277,7 @@
     "href": "reference/BinaryTraceHeader.html",
     "title": "BinaryTraceHeader",
     "section": "",
-    "text": "BinaryTraceHeader\nBinaryTraceHeader(\n    values=(lambda: {k: 0for k in TH_FIELDS})(),\n    keys_loaded=list(),\n)\nContainer for parsed binary trace header values.\n\n\n\n\n Back to top",
+    "text": "BinaryTraceHeader\nBinaryTraceHeader(\n    values=(lambda: {k: 0 for k in TH_FIELDS})(),\n    keys_loaded=list(),\n)\nContainer for parsed binary trace header values.\n\n\n\n\n Back to top",
     "crumbs": [
       "API",
       "pysegy",
@@ -504,7 +504,7 @@
     "href": "reference/BinaryFileHeader.html",
     "title": "BinaryFileHeader",
     "section": "",
-    "text": "BinaryFileHeader\nBinaryFileHeader(\n    values=(lambda: {k: 0for k in FH_FIELDS})(),\n    keys_loaded=(lambda: list(FH_FIELDS))(),\n)\nContainer for parsed binary file header values.\n\n\n\n\n Back to top",
+    "text": "BinaryFileHeader\nBinaryFileHeader(\n    values=(lambda: {k: 0 for k in FH_FIELDS})(),\n    keys_loaded=(lambda: list(FH_FIELDS))(),\n)\nContainer for parsed binary file header values.\n\n\n\n\n Back to top",
     "crumbs": [
       "API",
       "pysegy",
