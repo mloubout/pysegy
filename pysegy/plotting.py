@@ -71,7 +71,8 @@ def _clip_limits(img: np.ndarray, perc: int = 95, positive: bool = False,
     if positive:
         high = np.percentile(img, perc)
         high = vmax if vmax is not None else high
-        return 0.0, high
+        low = np.amin(img)
+        return low, high
     high = np.percentile(np.abs(img), perc)
     high = vmax if vmax is not None else high
     return -high, high
