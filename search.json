@@ -136,7 +136,7 @@
     "href": "reference/ShotRecord.html",
     "title": "ShotRecord",
     "section": "",
-    "text": "ShotRecord(\n    path,\n    coordinates,\n    fileheader,\n    rec_depth_key='GroupWaterDepth',\n    depth_key='SourceDepth',\n    by_receiver=False,\n    segments=list(),\n    summary=dict(),\n    ns=0,\n    dt=0,\n    fs=None,\n)\nInformation about a single shot or receiver gather within a SEGY file.\n\n\n\n\n\nName\nDescription\n\n\n\n\nby_receiver\nbool(x) -&gt; bool\n\n\ndepth_key\nstr(object=’’) -&gt; str\n\n\ndt\nint([x]) -&gt; integer\n\n\nns\nint([x]) -&gt; integer\n\n\nrec_coordinates\nArray of receiver coordinates for this gather.\n\n\nrec_depth_key\nstr(object=’’) -&gt; str\n\n\n\n\n\n\n\n\n\nName\nDescription\n\n\n\n\nread_data\nLoad all traces for this shot.\n\n\nread_headers\nRead only the headers for this shot.\n\n\n\n\n\nread_data(keys=None)\nLoad all traces for this shot.\n\n\n\nread_headers(keys=None)\nRead only the headers for this shot.",
+    "text": "ShotRecord(\n    path,\n    coordinates,\n    fileheader,\n    rec_depth_key='GroupWaterDepth',\n    depth_key='SourceDepth',\n    by_receiver=False,\n    segments=list(),\n    summary=dict(),\n    ns=0,\n    dt=0,\n    fs=None,\n)\nInformation about a single shot or receiver gather within a SEGY file.\n\n\n\n\n\nName\nDescription\n\n\n\n\nby_receiver\nbool(x) -&gt; bool\n\n\ndepth_key\nstr(object=’’) -&gt; str\n\n\ndt\nint([x]) -&gt; integer\n\n\nns\nint([x]) -&gt; integer\n\n\nrec_coordinates\nArray of receiver coordinates for this gather.\n\n\nrec_depth_key\nstr(object=’’) -&gt; str\n\n\ntraceheaders\nLoad trace headers for all shots on first access.\n\n\n\n\n\n\n\n\n\nName\nDescription\n\n\n\n\nread_data\nLoad all traces for this shot.\n\n\nread_headers\nRead only the headers for this shot.\n\n\n\n\n\nread_data(keys=None)\nLoad all traces for this shot.\n\n\n\nread_headers(keys=None)\nRead only the headers for this shot.",
     "crumbs": [
       "API",
       "pysegy",
@@ -148,7 +148,7 @@
     "href": "reference/ShotRecord.html#attributes",
     "title": "ShotRecord",
     "section": "",
-    "text": "Name\nDescription\n\n\n\n\nby_receiver\nbool(x) -&gt; bool\n\n\ndepth_key\nstr(object=’’) -&gt; str\n\n\ndt\nint([x]) -&gt; integer\n\n\nns\nint([x]) -&gt; integer\n\n\nrec_coordinates\nArray of receiver coordinates for this gather.\n\n\nrec_depth_key\nstr(object=’’) -&gt; str",
+    "text": "Name\nDescription\n\n\n\n\nby_receiver\nbool(x) -&gt; bool\n\n\ndepth_key\nstr(object=’’) -&gt; str\n\n\ndt\nint([x]) -&gt; integer\n\n\nns\nint([x]) -&gt; integer\n\n\nrec_coordinates\nArray of receiver coordinates for this gather.\n\n\nrec_depth_key\nstr(object=’’) -&gt; str\n\n\ntraceheaders\nLoad trace headers for all shots on first access.",
     "crumbs": [
       "API",
       "pysegy",
