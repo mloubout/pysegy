@@ -110,6 +110,15 @@ class ShotRecord:
         return self._data
 
     @property
+    def traceheaders(self) -> List[List[BinaryTraceHeader]]:
+        """
+        Load trace headers for all shots on first access.
+        """
+        if self._headers is None:
+            self._headers = self.read_headers()
+        return self._headers
+
+    @property
     def rec_coordinates(self) -> np.ndarray:
         """
         Array of receiver coordinates for this gather.
