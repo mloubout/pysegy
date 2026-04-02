@@ -33,7 +33,7 @@ class ShotRecord:
     path: str
     coordinates: Tuple[float, float, float]
     fileheader: FileHeader
-    rec_depth_key: str = "GroupWaterDepth"
+    rec_depth_key: str = "RecGroupElevation"
     depth_key: str = "SourceDepth"
     by_receiver: bool = False
     segments: List[Tuple[int, int]] = field(default_factory=list)

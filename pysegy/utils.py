@@ -33,16 +33,21 @@ _ELEV_FIELDS = {
 }
 
 _SOURCE_DEPTH_FIELDS: Tuple[str, ...] = (
+    # Likely-first: true source depth when present
     "SourceDepth",
-    "SourceWaterDepth",
+    # Next prefer datum elevation over water depth; surface elevation after
     "SourceDatumElevation",
     "SourceSurfaceElevation",
+    # Least likely candidate
+    "SourceWaterDepth",
 )
 
 _RECEIVER_DEPTH_FIELDS: Tuple[str, ...] = (
-    "GroupWaterDepth",
+    # Prefer receiver group elevation first
     "RecGroupElevation",
     "RecDatumElevation",
+    # Least likely candidate
+    "GroupWaterDepth",
 )
 
 _DEPTH_SENTINELS = {0, 2147483647, -2147483648, 32767, -32768}
@@ -151,6 +156,15 @@ def get_header(
 
 
 def _depth_score(values: Iterable[float]) -> Tuple[int, float]:
+    """
+    Compute a simple quality score for a sequence of depth-like values.
+
+    The score returns a tuple of ``(count, span)`` where ``count`` is the
+    number of non-sentinel entries and ``span`` is the range of the data. This
+    is retained for backwards compatibility but is no longer used to choose the
+    preferred header field. Header selection now follows a fixed priority order
+    and simply checks for the presence of valid (non-zero, non-sentinel) data.
+    """
     cleaned: List[float] = []
     for val in values:
         fval = float(val)
@@ -227,21 +241,27 @@ def detect_depth_keys(
         if not headers:
             return source_key, receiver_key
 
-    best_source_score = (0, 0.0)
+    def _has_valid(values: Iterable[float]) -> bool:
+        """Return True when any non-sentinel, non-zero value is present."""
+        for v in values:
+            fval = float(v)
+            if fval in _DEPTH_SENTINELS:
+                continue
+            if fval != 0.0:
+                return True
+        return False
+
     for candidate in _SOURCE_DEPTH_FIELDS:
         vals = get_header(headers, candidate)
-        score = _depth_score(vals)
-        if score > best_source_score:
-            best_source_score = score
+        if _has_valid(vals):
             source_key = candidate
+            break
 
-    best_receiver_score = (0, 0.0)
     for candidate in _RECEIVER_DEPTH_FIELDS:
         vals = get_header(headers, candidate)
-        score = _depth_score(vals)
-        if score > best_receiver_score:
-            best_receiver_score = score
+        if _has_valid(vals):
             receiver_key = candidate
+            break
 
     return source_key, receiver_key
 

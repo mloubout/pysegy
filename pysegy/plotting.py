@@ -276,6 +276,7 @@ def compare_shots(
     cmap: Sequence[str] | str = "gray",
     side_by_side: bool = False,
     chunksize: int = 20,
+    new_fig: bool = False,
     **kw,
 ):
     """
@@ -305,7 +306,7 @@ def compare_shots(
         out1[:, start:start + chunksize] = arr1[:, start:start + chunksize]
     for start in range(chunksize, nrec, 2 * chunksize):
         out2[:, start:start + chunksize] = arr2[:, start:start + chunksize]
-    plot_sdata(out1, spacing, cmap=cmap[0], **kw)
+    plot_sdata(out1, spacing, cmap=cmap[0], new_fig=new_fig, **kw)
     _plot_with_units(
         out2,
         spacing,

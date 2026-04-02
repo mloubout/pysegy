@@ -173,7 +173,7 @@ class TestDetectDepthKeys:
         dest = self._write_block(f"depth_source_{source_key}.segy", headers)
         detected_source, detected_receiver = seg.detect_depth_keys(str(dest))
         assert detected_source == source_key
-        assert detected_receiver == "GroupWaterDepth"
+        assert detected_receiver == "RecGroupElevation"
 
     @pytest.mark.parametrize("receiver_key", _RECEIVER_DEPTH_FIELDS)
     def test_receiver_candidates(self, receiver_key):
@@ -204,7 +204,7 @@ class TestDetectDepthKeys:
         dest = self._write_block("depth_default.segy", [th])
         source_key, receiver_key = seg.detect_depth_keys(str(dest))
         assert source_key == "SourceDepth"
-        assert receiver_key == "GroupWaterDepth"
+        assert receiver_key == "RecGroupElevation"
 
     def test_detect_depth_keys_with_no_traces(self):
         fh = FileHeader()
@@ -213,7 +213,7 @@ class TestDetectDepthKeys:
             seg.write.write_fileheader(f, fh)
         source_key, receiver_key = seg.detect_depth_keys(str(dest))
         assert source_key == "SourceDepth"
-        assert receiver_key == "GroupWaterDepth"
+        assert receiver_key == "RecGroupElevation"
 
     def test_segy_scan_uses_detected_keys(self):
         headers = []

@@ -21,3 +21,12 @@ summarises multiple files and returns a
 [pysegy.SegyScan](reference/SegyScan.html#pysegy.SegyScan) that can lazily read data
 for each shot. Use ``by_receiver=True`` to group traces by receiver coordinates
 instead of source coordinates.
+
+Depth field detection
+- The source and receiver depth fields are auto-detected using a fixed
+  priority, not by picking headers with the largest value spread. This reduces
+  surprises with unlikely headers.
+- Source priority: ``SourceDepth`` > ``SourceDatumElevation`` >
+  ``SourceSurfaceElevation`` > ``SourceWaterDepth``.
+- Receiver priority: ``RecGroupElevation`` > ``RecDatumElevation`` >
+  ``GroupWaterDepth``.
