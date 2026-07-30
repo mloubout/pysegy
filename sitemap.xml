@@ -2,106 +2,106 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/plot_sdata.html</loc>
-    <lastmod>2026-07-30T11:27:12.095Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.307Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/SeisBlock.html</loc>
-    <lastmod>2026-07-30T11:27:12.050Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.262Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/BinaryFileHeader.html</loc>
-    <lastmod>2026-07-30T11:27:12.081Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.293Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/FileHeader.html</loc>
-    <lastmod>2026-07-30T11:27:12.087Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.300Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/save_scan.html</loc>
-    <lastmod>2026-07-30T11:27:12.073Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.286Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/plot_simage.html</loc>
-    <lastmod>2026-07-30T11:27:12.092Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.304Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/segy_write.html</loc>
-    <lastmod>2026-07-30T11:27:12.069Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.281Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/BinaryTraceHeader.html</loc>
-    <lastmod>2026-07-30T11:27:12.084Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.296Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/load_scan.html</loc>
-    <lastmod>2026-07-30T11:27:12.078Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.290Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/index.html</loc>
-    <lastmod>2026-07-30T11:26:28.954Z</lastmod>
+    <lastmod>2026-07-30T16:48:37.295Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/tutorial/plotting_example.html</loc>
-    <lastmod>2026-07-30T11:27:08.987Z</lastmod>
+    <lastmod>2026-07-30T16:49:22.425Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/tutorial/read_write_tutorial.html</loc>
-    <lastmod>2026-07-30T11:27:08.987Z</lastmod>
+    <lastmod>2026-07-30T16:49:22.426Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/read.html</loc>
-    <lastmod>2026-07-30T11:26:28.954Z</lastmod>
+    <lastmod>2026-07-30T16:48:37.295Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/write.html</loc>
-    <lastmod>2026-07-30T11:26:28.954Z</lastmod>
+    <lastmod>2026-07-30T16:48:37.295Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/scan.html</loc>
-    <lastmod>2026-07-30T11:26:28.954Z</lastmod>
+    <lastmod>2026-07-30T16:48:37.295Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/tutorial/bp_scan_tutorial.html</loc>
-    <lastmod>2026-07-30T11:27:08.986Z</lastmod>
+    <lastmod>2026-07-30T16:49:22.424Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/tutorial/index.html</loc>
-    <lastmod>2026-07-30T11:26:28.954Z</lastmod>
+    <lastmod>2026-07-30T16:48:37.295Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/ShotRecord.html</loc>
-    <lastmod>2026-07-30T11:27:12.024Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.238Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/plot_fslice.html</loc>
-    <lastmod>2026-07-30T11:27:12.104Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.316Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/segy_read.html</loc>
-    <lastmod>2026-07-30T11:27:12.065Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.276Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/segy_scan.html</loc>
-    <lastmod>2026-07-30T11:27:12.059Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.271Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/compare_shots.html</loc>
-    <lastmod>2026-07-30T11:27:12.114Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.326Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/wiggle_plot.html</loc>
-    <lastmod>2026-07-30T11:27:12.108Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.320Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/plot_velocity.html</loc>
-    <lastmod>2026-07-30T11:27:12.099Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.312Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/index.html</loc>
-    <lastmod>2026-07-30T11:27:11.987Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.196Z</lastmod>
   </url>
   <url>
     <loc>https://mloubout.github.io/pysegy/reference/SegyScan.html</loc>
-    <lastmod>2026-07-30T11:27:12.046Z</lastmod>
+    <lastmod>2026-07-30T16:49:26.259Z</lastmod>
   </url>
 </urlset>

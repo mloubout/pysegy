@@ -558,14 +558,18 @@ gtag('config', 'G-ERCRWL13YZ', { 'anonymize_ip': true});
 <td>int([x]) -&gt; integer</td>
 </tr>
 <tr class="odd">
+<td><a href="#pysegy.ShotRecord.ntraces">ntraces</a></td>
+<td>Number of traces in this record.</td>
+</tr>
+<tr class="even">
 <td><a href="#pysegy.ShotRecord.rec_coordinates">rec_coordinates</a></td>
 <td>Array of receiver coordinates for this gather.</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><a href="#pysegy.ShotRecord.rec_depth_key">rec_depth_key</a></td>
 <td>str(object=’’) -&gt; str</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><a href="#pysegy.ShotRecord.traceheaders">traceheaders</a></td>
 <td>Load trace headers for all shots on first access.</td>
 </tr>
@@ -584,7 +588,7 @@ gtag('config', 'G-ERCRWL13YZ', { 'anonymize_ip': true});
 <tbody>
 <tr class="odd">
 <td><a href="#pysegy.ShotRecord.read_data">read_data</a></td>
-<td>Load all traces for this shot.</td>
+<td>Load the traces of this shot.</td>
 </tr>
 <tr class="even">
 <td><a href="#pysegy.ShotRecord.read_headers">read_headers</a></td>
@@ -594,8 +598,60 @@ gtag('config', 'G-ERCRWL13YZ', { 'anonymize_ip': true});
 </table>
 <section id="pysegy.ShotRecord.read_data" class="level3">
 <h3 class="anchored" data-anchor-id="pysegy.ShotRecord.read_data">read_data</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>read_data(keys<span class="op">=</span><span class="va">None</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Load all traces for this shot.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>read_data(keys<span class="op">=</span><span class="va">None</span>, traces<span class="op">=</span><span class="va">None</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Load the traces of this shot.</p>
+<section id="parameters" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters">Parameters</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 5%">
+<col style="width: 11%">
+<col style="width: 76%">
+<col style="width: 7%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>keys</td>
+<td>Iterable[str]</td>
+<td>Header fields to load with each trace.</td>
+<td><code>None</code></td>
+</tr>
+<tr class="even">
+<td>traces</td>
+<td>slice</td>
+<td>Range of this record’s traces to load. Only the corresponding part of the file is read; by default all traces are.</td>
+<td><code>None</code></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns">Returns</h4>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>ndarray</td>
+<td><code>ns</code> x number of traces read.</td>
+</tr>
+</tbody>
+</table>
+</section>
 </section>
 <section id="pysegy.ShotRecord.read_headers" class="level3">
 <h3 class="anchored" data-anchor-id="pysegy.ShotRecord.read_headers">read_headers</h3>
