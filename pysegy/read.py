@@ -11,14 +11,70 @@ from .types import (
     TH_BYTE2SAMPLE,
 )
 from typing import BinaryIO, Iterable, List, Optional, Tuple
+from concurrent.futures import Future, ProcessPoolExecutor
+import multiprocessing
 import numpy as np
-from concurrent.futures import ThreadPoolExecutor
-
-from .utils import read_samples, unpack_int, open_file
+from .utils import unpack_int, open_file
+from .ibm import ibm_words_to_ieee
 from . import vprint
 
 # Number of traces to read at a time when loading an entire file
 TRACE_CHUNKSIZE = 512
+
+
+def _decode_trace_bytes(
+    raw: bytes,
+    ns: int,
+    ntraces: int,
+    datatype: int,
+    keys: Optional[Iterable[str]],
+    bigendian: bool,
+) -> Tuple[List[BinaryTraceHeader], np.ndarray]:
+    """Decode one self-contained trace chunk.
+
+    This module-level function is intentionally pickleable so large reads can
+    decode independent chunks in worker processes rather than GIL-bound
+    threads.  File I/O stays in the parent process, which also supports remote
+    and file-like objects that cannot be reopened by a worker.
+    """
+    if ntraces == 0:
+        return [], np.empty((ns, 0), dtype=np.float32)
+
+    trace_size = 240 + ns * 4
+    expected = trace_size * ntraces
+    if len(raw) != expected:
+        raise EOFError(
+            f"Expected {expected} bytes for {ntraces} traces, got {len(raw)}"
+        )
+
+    key_list = list(TH_BYTE2SAMPLE.keys()) if keys is None else list(keys)
+    byteorder = ">" if bigendian else "<"
+    header_columns = {}
+    for key in key_list:
+        offset, size = TH_BYTE2SAMPLE[key]
+        dtype = np.dtype(f"{byteorder}i{size}")
+        header_columns[key] = np.ndarray(
+            (ntraces,), dtype=dtype, buffer=raw, offset=offset,
+            strides=(trace_size,),
+        )
+
+    headers: List[BinaryTraceHeader] = []
+    for idx in range(ntraces):
+        hdr = BinaryTraceHeader()
+        for key, values in header_columns.items():
+            setattr(hdr, key, int(values[idx]))
+        hdr.keys_loaded = key_list
+        headers.append(hdr)
+
+    sample_dtype = np.dtype(f"{byteorder}{'u4' if datatype == 1 else 'f4'}")
+    samples = np.ndarray(
+        (ntraces, ns), dtype=sample_dtype, buffer=raw, offset=240,
+        strides=(trace_size, 4),
+    )
+    if datatype == 1:
+        samples = ibm_words_to_ieee(samples)
+    data = np.asarray(samples, dtype=np.float32).T.copy()
+    return headers, data
 
 
 def read_fileheader(
@@ -101,7 +157,7 @@ def read_traces(
     datatype: int,
     keys: Optional[Iterable[str]] = None,
     bigendian: bool = True,
-) -> Tuple[List[BinaryTraceHeader], List[List[float]]]:
+) -> Tuple[List[BinaryTraceHeader], np.ndarray]:
     """
     Read ``ntraces`` traces and their headers from ``f``.
 
@@ -126,39 +182,9 @@ def read_traces(
         ``(headers, data)`` where ``headers`` is a list of
         :class:`BinaryTraceHeader` and ``data`` is ``ns`` x ``ntraces`` array.
     """
-    data: np.ndarray = np.zeros((ns, ntraces), dtype=np.float32)
-    headers: List[BinaryTraceHeader] = [BinaryTraceHeader() for _ in range(ntraces)]
-
     trace_size = 240 + ns * 4
     raw = f.read(trace_size * ntraces)
-
-    if keys is None:
-        keys = list(TH_BYTE2SAMPLE.keys())
-    key_list = list(keys)
-
-    hdr_parsers = [
-        (k, TH_BYTE2SAMPLE[k][0], TH_BYTE2SAMPLE[k][1]) for k in key_list
-    ]
-
-    def parse_one(idx: int):
-        offset = idx * trace_size
-        hdr_buf = raw[offset:offset + 240]
-        hdr = BinaryTraceHeader()
-        for k, off_k, size_k in hdr_parsers:
-            val = unpack_int(hdr_buf[off_k:off_k + size_k], size_k, bigendian)
-            setattr(hdr, k, val)
-        hdr.keys_loaded = key_list
-
-        data_buf = raw[offset + 240:offset + trace_size]
-        samples = read_samples(data_buf, ns, datatype, bigendian)
-        return idx, hdr, samples
-
-    with ThreadPoolExecutor() as pool:
-        for idx, hdr, samples in pool.map(parse_one, range(ntraces)):
-            headers[idx] = hdr
-            data[:, idx] = samples
-
-    return headers, data
+    return _decode_trace_bytes(raw, ns, ntraces, datatype, keys, bigendian)
 
 
 def read_file(
@@ -182,7 +208,9 @@ def read_file(
     bigendian : bool, optional
         Set ``True`` for big-endian encoding.
     workers : int, optional
-        Unused parameter kept for backwards compatibility.
+        Number of processes used to decode independent trace chunks. Use
+        ``1`` to disable multiprocessing. At most one chunk per worker is
+        pending, bounding the additional memory used for large datasets.
 
     Returns
     -------
@@ -200,17 +228,61 @@ def read_file(
     f.seek(3600)
     headers: List[BinaryTraceHeader] = [BinaryTraceHeader() for _ in range(ntraces)]
     data: np.ndarray = np.zeros((ns, ntraces), dtype=np.float32)
+    key_list = None if keys is None else list(keys)
 
-    idx = 0
-    while idx < ntraces:
-        count = min(TRACE_CHUNKSIZE, ntraces - idx)
-        h, d = read_traces(
-            f, ns, count, dsf, keys, bigendian
-        )
+    if workers < 1:
+        raise ValueError("workers must be at least 1")
+
+    def store_chunk(start: int, result) -> None:
+        h, d = result
+        count = len(h)
         for j in range(count):
-            headers[idx + j] = h[j]
-            data[:, idx + j] = d[:, j]
-        idx += count
+            headers[start + j] = h[j]
+        data[:, start:start + count] = d
+
+    if workers == 1 or ntraces <= TRACE_CHUNKSIZE:
+        idx = 0
+        while idx < ntraces:
+            count = min(TRACE_CHUNKSIZE, ntraces - idx)
+            store_chunk(
+                idx, read_traces(f, ns, count, dsf, key_list, bigendian)
+            )
+            idx += count
+    else:
+        pending: List[Tuple[int, Future]] = []
+        # ``fork`` also permits library use from notebooks and ``python -c``
+        # on POSIX. Windows only offers spawn and therefore retains Python's
+        # usual requirement that multiprocessing entry points are guarded.
+        methods = multiprocessing.get_all_start_methods()
+        context = multiprocessing.get_context(
+            "fork" if "fork" in methods else methods[0]
+        )
+        with ProcessPoolExecutor(
+            max_workers=workers, mp_context=context
+        ) as pool:
+            idx = 0
+            while idx < ntraces:
+                count = min(TRACE_CHUNKSIZE, ntraces - idx)
+                raw = f.read(trace_size * count)
+                future = pool.submit(
+                    _decode_trace_bytes,
+                    raw,
+                    ns,
+                    count,
+                    dsf,
+                    key_list,
+                    bigendian,
+                )
+                pending.append((idx, future))
+                idx += count
+
+                # Limit queued bytes while keeping every process occupied.
+                if len(pending) >= workers:
+                    start, completed = pending.pop(0)
+                    store_chunk(start, completed.result())
+
+            for start, completed in pending:
+                store_chunk(start, completed.result())
 
     return SeisBlock(fh, headers, data)
 

@@ -43,6 +43,19 @@ pytest -vs
 
 The tests run automatically on GitHub Actions with coverage reports uploaded to Codecov.
 
+## Read benchmark
+
+The read benchmark compares median throughput, speedup, and parallel
+efficiency for multiple process counts:
+
+```bash
+python benchmarks/read_benchmark.py /path/to/large.segy --workers 1 2 4 8
+```
+
+Use a representative large file and repeat the benchmark on the target
+storage system. Small files commonly run faster with one worker because
+process startup and inter-process transfer costs outweigh parallel decoding.
+
 ## Inspiration
 
 This project started as a lightweight port of the Julia package

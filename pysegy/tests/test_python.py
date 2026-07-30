@@ -85,6 +85,54 @@ def test_write_read_block_bytesio():
     assert np.all(out.data == data)
 
 
+def test_read_traces_rejects_truncated_input():
+    with pytest.raises(EOFError, match="Expected 248 bytes"):
+        seg.read.read_traces(BytesIO(bytes(247)), 2, 1, 5)
+
+
+def test_read_traces_empty_input():
+    headers, data = seg.read.read_traces(BytesIO(), 2, 0, 5)
+    assert headers == []
+    assert data.shape == (2, 0)
+    assert data.dtype == np.float32
+
+
+def test_read_traces_little_endian():
+    header = bytearray(240)
+    header[0:4] = (123).to_bytes(4, "little", signed=True)
+    raw = bytes(header) + np.array([1.5, -2.0], dtype="<f4").tobytes()
+    headers, data = seg.read.read_traces(
+        BytesIO(raw), 2, 1, 5, keys=["TraceNumWithinLine"], bigendian=False
+    )
+    assert headers[0].TraceNumWithinLine == 123
+    assert np.array_equal(data[:, 0], [1.5, -2.0])
+
+
+def test_read_file_parallel_chunks(tmp_path, monkeypatch):
+    monkeypatch.setattr(seg.read, "TRACE_CHUNKSIZE", 1)
+    fh = FileHeader()
+    fh.bfh.ns = 2
+    fh.bfh.DataSampleFormat = 5
+    headers = [BinaryTraceHeader() for _ in range(3)]
+    for index, header in enumerate(headers):
+        header.ns = 2
+        header.SourceX = index + 10
+    expected = np.arange(6, dtype=np.float32).reshape(2, 3)
+    path = tmp_path / "parallel.segy"
+    seg.segy_write(str(path), SeisBlock(fh, headers, expected))
+
+    with path.open("rb") as stream:
+        actual = seg.read.read_file(stream, workers=2)
+
+    assert [header.SourceX for header in actual.traceheaders] == [10, 11, 12]
+    assert np.array_equal(actual.data, expected)
+
+
+def test_read_file_rejects_invalid_workers():
+    with pytest.raises(ValueError, match="workers must be at least 1"):
+        seg.read.read_file(BytesIO(bytes(3600)), workers=0)
+
+
 def test_read_with_filesystem():
     fs = fsspec.filesystem("file")
     block = seg.segy_read(DATAFILE, fs=fs)

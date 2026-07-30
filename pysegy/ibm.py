@@ -36,10 +36,13 @@ def ibm_to_ieee(value: Union[bytes, bytearray, int]) -> float:
     return sign * mant * 16 ** (exponent - 64)
 
 
-def ibm_to_ieee_array(buf: bytes, count: int, bigendian: bool = True) -> np.ndarray:
-    """Vectorized conversion of ``count`` IBM floats contained in ``buf``."""
-    dtype = ">u4" if bigendian else "<u4"
-    vals = np.frombuffer(buf, dtype=dtype, count=count)
+def ibm_words_to_ieee(vals: np.ndarray) -> np.ndarray:
+    """Convert an array of IBM floating-point words to IEEE floats.
+
+    ``vals`` may be strided.  This is useful for decoding samples interleaved
+    with SEGY trace headers without first copying every trace into a separate
+    bytes object.
+    """
     sign = np.where(vals >> 31 == 0, 1.0, -1.0)
     exponent = (vals >> 24) & 0x7F
     fraction = vals & 0x00FFFFFF
@@ -47,6 +50,13 @@ def ibm_to_ieee_array(buf: bytes, count: int, bigendian: bool = True) -> np.ndar
     out = sign * mant * np.power(16.0, exponent.astype(np.float64) - 64)
     out[vals == 0] = 0.0
     return out.astype(np.float32)
+
+
+def ibm_to_ieee_array(buf: bytes, count: int, bigendian: bool = True) -> np.ndarray:
+    """Vectorized conversion of ``count`` IBM floats contained in ``buf``."""
+    dtype = ">u4" if bigendian else "<u4"
+    vals = np.frombuffer(buf, dtype=dtype, count=count)
+    return ibm_words_to_ieee(vals)
 
 
 def ieee_to_ibm(f: float) -> bytes:
