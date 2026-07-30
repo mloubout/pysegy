@@ -331,6 +331,76 @@ def test_scan_by_receiver_gather(tmp_path):
     assert tuple(coords[0]) == (1.0, 1.0, 0.0)
 
 
+def _write_model(path, ntraces=8, ns=4):
+    """
+    Write a stacked file, e.g. a velocity model: no gathers, and every trace
+    carrying its own coordinate.
+    """
+    fh = FileHeader()
+    fh.bfh.ns = ns
+    fh.bfh.DataSampleFormat = 5
+    fh.bfh.TraceSorting = seg.scan.STACKED_SORTING
+
+    headers = []
+    for i in range(ntraces):
+        hdr = BinaryTraceHeader()
+        hdr.ns = ns
+        hdr.SourceX = hdr.GroupX = hdr.CDPX = 10 * i
+        headers.append(hdr)
+
+    data = np.arange(ns * ntraces, dtype=np.float32).reshape(ns, ntraces)
+    with open(path, "wb") as f:
+        seg.write.write_block(f, SeisBlock(fh, headers, data))
+    return data
+
+
+def test_scan_stacked_file(tmp_path):
+    """
+    A file without gathers scans as a single record holding every trace.
+    """
+    tmp = tmp_path / "model.segy"
+    data = _write_model(tmp, ntraces=8, ns=4)
+
+    scan = seg.segy_scan(str(tmp), keys=["GroupX"])
+    assert len(scan) == 1
+    assert scan.counts == [8]
+    assert scan[0].segments == [(3600, 8)]
+    assert scan.summary(0)["GroupX"] == (0, 70)
+    assert np.array_equal(scan[0].data, data)
+
+
+def test_read_trace_range(tmp_path):
+    """
+    Reading a range of traces only reads that range, and matches a full read.
+    """
+    tmp = tmp_path / "model.segy"
+    data = _write_model(tmp, ntraces=8, ns=4)
+    record = seg.segy_scan(str(tmp))[0]
+
+    assert np.array_equal(record.read_data(traces=slice(2, 5)), data[:, 2:5])
+    assert np.array_equal(record.read_data(traces=slice(0, 1)), data[:, :1])
+    assert np.array_equal(record.read_data(traces=slice(7, 8)), data[:, 7:])
+    assert np.array_equal(record.read_data(), data)
+
+    # Same through the scan, which also returns the matching headers
+    block = seg.segy_scan(str(tmp)).read_data(0, traces=slice(2, 5))
+    assert np.array_equal(block.data, data[:, 2:5])
+    assert len(block.traceheaders) == 3
+    assert block.traceheaders[0].GroupX == 20
+
+
+def test_read_trace_range_segments(tmp_path):
+    """
+    Trace ranges spanning several segments of a gather.
+    """
+    scan = seg.segy_scan(DATAFILE)
+    record = scan[0]
+    full = record.read_data()
+
+    assert np.array_equal(record.read_data(traces=slice(3, 20)), full[:, 3:20])
+    assert record.read_data(traces=slice(0, 0)).shape == (record.ns, 0)
+
+
 def test_save_and_load_scan(tmp_path):
     scan = seg.segy_scan(DATAFILE)
     dest = tmp_path / "scan.pkl"
