@@ -23,6 +23,10 @@ from .types import (
 )
 from .utils import detect_depth_keys, get_header, open_file
 
+# Trace sorting code (binary file header) for horizontally stacked data, i.e.
+# data that holds no gathers, such as a stack or a property model
+STACKED_SORTING = 4
+
 
 @dataclass
 class ShotRecord:
@@ -58,7 +62,7 @@ class ShotRecord:
             f"{self.coordinates[2]}"
             ")"
         )
-        lines.append(f"    traces: {sum(c for _, c in self.segments)}")
+        lines.append(f"    traces: {self.ntraces}")
         lines.append(f"    ns: {self.ns}, dt: {self.dt}")
         if self.summary:
             lines.append("    summary:")
@@ -68,23 +72,58 @@ class ShotRecord:
 
     __repr__ = __str__
 
-    def read_data(self, keys: Optional[Iterable[str]] = None) -> SeisBlock:
+    @property
+    def ntraces(self) -> int:
         """
-        Load all traces for this shot.
+        Number of traces in this record.
         """
+        return sum(c for _, c in self.segments)
+
+    def read_data(
+        self,
+        keys: Optional[Iterable[str]] = None,
+        traces: Optional[slice] = None,
+    ) -> SeisBlock:
+        """
+        Load the traces of this shot.
+
+        Parameters
+        ----------
+        keys : Iterable[str], optional
+            Header fields to load with each trace.
+        traces : slice, optional
+            Range of this record's traces to load. Only the corresponding part
+            of the file is read; by default all traces are.
+
+        Returns
+        -------
+        ndarray
+            ``ns`` x number of traces read.
+        """
+        ns = self.fileheader.bfh.ns
+        trace_size = 240 + ns * 4
+        start, stop, _ = (traces or slice(None)).indices(self.ntraces)
+
         data_parts = []
+        first = 0
         for offset, count in self.segments:
-            with open_file(self.path, "rb", self.fs) as f:
-                f.seek(offset)
-                _, d = read_traces(
-                    f,
-                    self.fileheader.bfh.ns,
-                    count,
-                    self.fileheader.bfh.DataSampleFormat,
-                    keys,
-                )
-                data_parts.append(d)
-        return np.concatenate(data_parts, axis=1) if data_parts else []
+            # Part of this segment that falls within the requested range
+            low, high = max(start, first), min(stop, first + count)
+            if high > low:
+                with open_file(self.path, "rb", self.fs) as f:
+                    f.seek(offset + (low - first) * trace_size)
+                    _, d = read_traces(
+                        f,
+                        ns,
+                        high - low,
+                        self.fileheader.bfh.DataSampleFormat,
+                        keys,
+                    )
+                    data_parts.append(d)
+            first += count
+        if not data_parts:
+            return np.empty((ns, 0), dtype=np.float32)
+        return np.concatenate(data_parts, axis=1)
 
     def read_headers(
         self, keys: Optional[Iterable[str]] = None
@@ -143,6 +182,59 @@ class ShotRecord:
             dz = get_header(hdrs, zname)
             self._rec_coords = np.column_stack((gx, gy, dz)).astype(np.float32)
         return self._rec_coords
+
+
+def _is_gathered(fh: FileHeader, records: List[ShotRecord]) -> bool:
+    """
+    Whether the scanned traces form gathers at all.
+
+    Post-stack data, a velocity model or any other property cube has no shot
+    structure: the binary file header says so when its trace sorting is
+    ``STACKED_SORTING``, and grouping such a file by source coordinate yields
+    single-trace groups, since every trace then carries its own coordinate.
+    """
+    if fh.bfh.TraceSorting == STACKED_SORTING:
+        return False
+    return any(r.ntraces > 1 for r in records)
+
+
+def _merge_records(
+    records: List[ShotRecord], fh: FileHeader, fs=None
+) -> ShotRecord:
+    """
+    Merge scanned records into a single one holding every trace, in file order.
+    """
+    trace_size = 240 + fh.bfh.ns * 4
+    first = min(records, key=lambda r: r.segments[0][0])
+
+    segments: List[Tuple[int, int]] = []
+    for offset, count in sorted(s for r in records for s in r.segments):
+        if segments and offset == segments[-1][0] + segments[-1][1]*trace_size:
+            segments[-1] = (segments[-1][0], segments[-1][1] + count)
+        else:
+            segments.append((offset, count))
+
+    summary: Dict[str, Tuple[float, float]] = {}
+    for rec in records:
+        for k, (mn, mx) in rec.summary.items():
+            if k in summary:
+                summary[k] = (min(summary[k][0], mn), max(summary[k][1], mx))
+            else:
+                summary[k] = (mn, mx)
+
+    return ShotRecord(
+        first.path,
+        first.coordinates,
+        fh,
+        first.rec_depth_key,
+        first.depth_key,
+        first.by_receiver,
+        segments,
+        summary,
+        first.ns,
+        first.dt,
+        fs,
+    )
 
 
 def _parse_header(buf: bytes, keys: Iterable[str]) -> BinaryTraceHeader:
@@ -308,7 +400,7 @@ class SegyScan:
         """
         Total number of traces for each shot.
         """
-        return [sum(c for _, c in r.segments) for r in self.records]
+        return [r.ntraces for r in self.records]
 
     def __getitem__(self, idx: int) -> ShotRecord:
         """
@@ -332,10 +424,13 @@ class SegyScan:
         return self.records[idx].summary
 
     def read_data(
-        self, idx: int, keys: Optional[Iterable[str]] = None
+        self,
+        idx: int,
+        keys: Optional[Iterable[str]] = None,
+        traces: Optional[slice] = None,
     ) -> SeisBlock:
         """
-        Load all traces for a single shot.
+        Load the traces of a single shot.
 
         Parameters
         ----------
@@ -343,32 +438,44 @@ class SegyScan:
             Index of the shot to read.
         keys : Iterable[str], optional
             Additional header fields to load with each trace.
+        traces : slice, optional
+            Range of the shot's traces to load. Only the corresponding part of
+            the file is read; by default all traces are.
 
         Returns
         -------
         SeisBlock
-            In-memory representation of the selected shot.
+            In-memory representation of the selected traces.
         """
         rec = self.records[idx]
+        ns = self.fileheader.bfh.ns
+        trace_size = 240 + ns * 4
+        start, stop, _ = (traces or slice(None)).indices(rec.ntraces)
+
         headers: List[BinaryTraceHeader] = []
         data_parts = []
+        first = 0
         for offset, count in rec.segments:
-            fs_to_use = rec.fs if rec.fs is not None else getattr(self, "fs", None)
-            with open_file(rec.path, "rb", fs_to_use) as f:
-                f.seek(offset)
-                h, d = read_traces(
-                    f,
-                    self.fileheader.bfh.ns,
-                    count,
-                    self.fileheader.bfh.DataSampleFormat,
-                    keys,
-                )
-            headers.extend(h)
-            data_parts.append(d)
+            # Part of this segment that falls within the requested range
+            low, high = max(start, first), min(stop, first + count)
+            if high > low:
+                fs_to_use = rec.fs if rec.fs is not None else getattr(self, "fs", None)
+                with open_file(rec.path, "rb", fs_to_use) as f:
+                    f.seek(offset + (low - first) * trace_size)
+                    h, d = read_traces(
+                        f,
+                        ns,
+                        high - low,
+                        self.fileheader.bfh.DataSampleFormat,
+                        keys,
+                    )
+                headers.extend(h)
+                data_parts.append(d)
+            first += count
         if data_parts:
             data = np.concatenate(data_parts, axis=1)
         else:
-            data = []  # pragma: no cover
+            data = np.empty((ns, 0), dtype=np.float32)  # pragma: no cover
         return SeisBlock(self.fileheader, headers, data)
 
     def read_headers(
@@ -549,6 +656,10 @@ def _scan_file(
             records[previous].segments.append((seg_start, seg_count))
 
     record_list = sorted(records.values(), key=lambda r: r.coordinates)
+    if record_list and not _is_gathered(fh, record_list):
+        vprint(f"{thread} {path} holds no gathers, scanned as a single record")
+        record_list = [_merge_records(record_list, fh, fs)]
+
     vprint(f"{thread} found {len(record_list)} shots in {path}")
     return SegyScan(fh, record_list, fs=fs)
 
