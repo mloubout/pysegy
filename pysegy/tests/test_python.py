@@ -90,6 +90,13 @@ def test_read_traces_rejects_truncated_input():
         seg.read.read_traces(BytesIO(bytes(247)), 2, 1, 5)
 
 
+def test_read_traces_empty_input():
+    headers, data = seg.read.read_traces(BytesIO(), 2, 0, 5)
+    assert headers == []
+    assert data.shape == (2, 0)
+    assert data.dtype == np.float32
+
+
 def test_read_traces_little_endian():
     header = bytearray(240)
     header[0:4] = (123).to_bytes(4, "little", signed=True)
