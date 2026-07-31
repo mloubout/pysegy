@@ -389,6 +389,37 @@ def test_read_trace_range(tmp_path):
     assert block.traceheaders[0].GroupX == 20
 
 
+def test_data_indexing(tmp_path):
+    """
+    Indexing `data` reads the traces it asks for, and nothing else.
+    """
+    tmp = tmp_path / "model.segy"
+    data = _write_model(tmp, ntraces=8, ns=4)
+    record = seg.segy_scan(str(tmp))[0]
+
+    assert isinstance(record.data, seg.TraceData)
+    assert record.data.shape == data.shape
+    assert len(record.data) == data.shape[0]
+    assert repr(record.data) == "TraceData(ns=4, traces=8)"
+    assert np.array_equal(np.asarray(record.data), data)
+
+    # A window of traces, of samples, or of both
+    assert np.array_equal(record.data[:, 2:5], data[:, 2:5])
+    assert np.array_equal(record.data[1:3], data[1:3])
+    assert np.array_equal(record.data[1:3, 2:5], data[1:3, 2:5])
+
+    # A single trace, a few of them, and a strided range
+    assert np.array_equal(record.data[:, 3], data[:, 3])
+    assert np.array_equal(record.data[:, [1, 5, 6]], data[:, [1, 5, 6]])
+    assert np.array_equal(record.data[:, 0:8:2], data[:, 0:8:2])
+
+    # Only the traces of the window are read
+    reads = []
+    record.read_data = lambda keys=None, traces=None: reads.append(traces) or data
+    record.data[:, 2:5]
+    assert reads == [slice(2, 5)]
+
+
 def test_read_trace_range_segments(tmp_path):
     """
     Trace ranges spanning several segments of a gather.
