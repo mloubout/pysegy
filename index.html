@@ -352,7 +352,7 @@ gtag('config', 'G-ERCRWL13YZ', { 'anonymize_ip': true});
   <li><a href="#capabilities" id="toc-capabilities" class="nav-link" data-scroll-target="#capabilities">Capabilities</a></li>
   <li><a href="#installation" id="toc-installation" class="nav-link" data-scroll-target="#installation">Installation</a></li>
   <li><a href="#testing" id="toc-testing" class="nav-link" data-scroll-target="#testing">Testing</a></li>
-  <li><a href="#read-benchmark" id="toc-read-benchmark" class="nav-link" data-scroll-target="#read-benchmark">Read benchmark</a></li>
+  <li><a href="#scan-benchmark" id="toc-scan-benchmark" class="nav-link" data-scroll-target="#scan-benchmark">Scan benchmark</a></li>
   <li><a href="#inspiration" id="toc-inspiration" class="nav-link" data-scroll-target="#inspiration">Inspiration</a></li>
   </ul></li>
   </ul>
@@ -408,11 +408,12 @@ gtag('config', 'G-ERCRWL13YZ', { 'anonymize_ip': true});
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">pytest</span> <span class="at">-vs</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>The tests run automatically on GitHub Actions with coverage reports uploaded to Codecov.</p>
 </section>
-<section id="read-benchmark" class="level2">
-<h2 class="anchored" data-anchor-id="read-benchmark">Read benchmark</h2>
-<p>The read benchmark compares median throughput, speedup, and parallel efficiency for multiple process counts:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> benchmarks/read_benchmark.py /path/to/large.segy <span class="at">--workers</span> 1 2 4 8</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Use a representative large file and repeat the benchmark on the target storage system. Small files commonly run faster with one worker because process startup and inter-process transfer costs outweigh parallel decoding.</p>
+<section id="scan-benchmark" class="level2">
+<h2 class="anchored" data-anchor-id="scan-benchmark">Scan benchmark</h2>
+<p>The scan benchmark compares sequential and threaded scanning of a file or directory:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> benchmarks/scan_benchmark.py /path/to/large.segy</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="ex">python</span> benchmarks/scan_benchmark.py /path/to/survey <span class="at">--pattern</span> <span class="st">'*.segy'</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Without an argument the bundled <code>data</code> directory is scanned. Threading pays off once several files or many shots are involved; a single small file is dominated by the fixed cost of opening it.</p>
 </section>
 <section id="inspiration" class="level2">
 <h2 class="anchored" data-anchor-id="inspiration">Inspiration</h2>

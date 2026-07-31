@@ -184,7 +184,7 @@
     "href": "index.html",
     "title": "pysegy",
     "section": "",
-    "text": "pysegy is a minimal Python library for working with SEGY Rev 1 data. The project provides helpers to read and write files as well as utilities to scan large surveys without loading every trace in memory.\n\n\n\nRead complete SEGY files with segy_read and access both binary and trace headers.\nWrite new data sets using segy_write from NumPy arrays.\nLazily inspect large archives via segy_scan and the SegyScan object.\nRetrieve individual header fields with automatic scaling through get_header.\nCompatible with any fsspec filesystem for local or remote storage.\n\n\n\n\nInstall the project in editable mode from the repository root:\npython -m pip install -e .\nOr to install the latest pypi release\npip install pysegy\n\n\n\nRun the unit tests with pytest:\npytest -vs\nThe tests run automatically on GitHub Actions with coverage reports uploaded to Codecov.\n\n\n\nThe read benchmark compares median throughput, speedup, and parallel efficiency for multiple process counts:\npython benchmarks/read_benchmark.py /path/to/large.segy --workers 1 2 4 8\nUse a representative large file and repeat the benchmark on the target storage system. Small files commonly run faster with one worker because process startup and inter-process transfer costs outweigh parallel decoding.\n\n\n\nThis project started as a lightweight port of the Julia package SegyIO.jl. The goal is to provide a similar user experience for Python while keeping the code base small and easy to understand."
+    "text": "pysegy is a minimal Python library for working with SEGY Rev 1 data. The project provides helpers to read and write files as well as utilities to scan large surveys without loading every trace in memory.\n\n\n\nRead complete SEGY files with segy_read and access both binary and trace headers.\nWrite new data sets using segy_write from NumPy arrays.\nLazily inspect large archives via segy_scan and the SegyScan object.\nRetrieve individual header fields with automatic scaling through get_header.\nCompatible with any fsspec filesystem for local or remote storage.\n\n\n\n\nInstall the project in editable mode from the repository root:\npython -m pip install -e .\nOr to install the latest pypi release\npip install pysegy\n\n\n\nRun the unit tests with pytest:\npytest -vs\nThe tests run automatically on GitHub Actions with coverage reports uploaded to Codecov.\n\n\n\nThe scan benchmark compares sequential and threaded scanning of a file or directory:\npython benchmarks/scan_benchmark.py /path/to/large.segy\npython benchmarks/scan_benchmark.py /path/to/survey --pattern '*.segy'\nWithout an argument the bundled data directory is scanned. Threading pays off once several files or many shots are involved; a single small file is dominated by the fixed cost of opening it.\n\n\n\nThis project started as a lightweight port of the Julia package SegyIO.jl. The goal is to provide a similar user experience for Python while keeping the code base small and easy to understand."
   },
   {
     "objectID": "index.html#capabilities",
@@ -208,11 +208,11 @@
     "text": "Run the unit tests with pytest:\npytest -vs\nThe tests run automatically on GitHub Actions with coverage reports uploaded to Codecov."
   },
   {
-    "objectID": "index.html#read-benchmark",
-    "href": "index.html#read-benchmark",
+    "objectID": "index.html#scan-benchmark",
+    "href": "index.html#scan-benchmark",
     "title": "pysegy",
     "section": "",
-    "text": "The read benchmark compares median throughput, speedup, and parallel efficiency for multiple process counts:\npython benchmarks/read_benchmark.py /path/to/large.segy --workers 1 2 4 8\nUse a representative large file and repeat the benchmark on the target storage system. Small files commonly run faster with one worker because process startup and inter-process transfer costs outweigh parallel decoding."
+    "text": "The scan benchmark compares sequential and threaded scanning of a file or directory:\npython benchmarks/scan_benchmark.py /path/to/large.segy\npython benchmarks/scan_benchmark.py /path/to/survey --pattern '*.segy'\nWithout an argument the bundled data directory is scanned. Threading pays off once several files or many shots are involved; a single small file is dominated by the fixed cost of opening it."
   },
   {
     "objectID": "index.html#inspiration",
