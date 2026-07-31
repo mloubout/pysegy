@@ -19,6 +19,7 @@ from .read import (
 )
 from .scan import (
     ShotRecord,
+    TraceData,
     SegyScan,
     segy_scan,
     save_scan,
@@ -48,6 +49,7 @@ __all__ = [
     "SeisBlock",
     "SegyScan",
     "ShotRecord",
+    "TraceData",
     "read_fileheader",
     "read_traceheader",
     "read_file",

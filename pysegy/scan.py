@@ -28,6 +28,57 @@ from .utils import detect_depth_keys, get_header, open_file
 STACKED_SORTING = 4
 
 
+class TraceData:
+    """
+    The traces of a :class:`ShotRecord`, read when they are indexed.
+
+    Indexing follows the ``(samples, traces)`` layout of a SEGY block, and only
+    the traces that are asked for are read off the file::
+
+        record.data[:, 100:200]     # reads a hundred traces
+        record.data[0:600, 100:200]     # and keeps the first 600 samples
+        np.asarray(record.data)      # reads them all
+
+    A record too large to hold in memory can therefore be worked through window
+    by window, and a distributed application can have every process read only
+    the part of it that it owns.
+    """
+
+    def __init__(self, record):
+        self.record = record
+        self.shape = (record.ns, record.ntraces)
+        self.dtype = np.float32
+
+    def __array__(self, dtype=None, copy=None):
+        values = self[:, :]
+        return values if dtype is None else values.astype(dtype)
+
+    def __len__(self) -> int:
+        return self.shape[0]
+
+    def __getitem__(self, index):
+        samples, traces = index if isinstance(index, tuple) else (index, slice(None))
+
+        # Read the traces that are asked for, as a range of them, and let numpy
+        # apply the rest of the indexing to what was read
+        if isinstance(traces, slice):
+            start, stop, step = traces.indices(self.shape[1])
+            block = self.record.read_data(keys=(), traces=slice(start, stop))
+            block = block[:, ::step] if step != 1 else block
+        else:
+            wanted = np.atleast_1d(traces)
+            first, last = int(np.min(wanted)), int(np.max(wanted))
+            block = self.record.read_data(keys=(), traces=slice(first, last + 1))
+            block = block[:, wanted - first]
+            if np.isscalar(traces) or np.ndim(traces) == 0:
+                block = block[:, 0]
+
+        return block[samples]
+
+    def __repr__(self) -> str:
+        return f"TraceData(ns={self.shape[0]}, traces={self.shape[1]})"
+
+
 @dataclass
 class ShotRecord:
     """
@@ -45,7 +96,7 @@ class ShotRecord:
     ns: int = 0
     dt: int = 0
     fs: Any = field(default=None, repr=False)
-    _data: Optional[np.ndarray] = field(default=None, init=False, repr=False)
+    _data: Optional["TraceData"] = field(default=None, init=False, repr=False)
     _headers: Optional[List[BinaryTraceHeader]] = field(
         default=None, init=False, repr=False
     )
@@ -143,9 +194,12 @@ class ShotRecord:
         return headers
 
     @property
-    def data(self) -> SeisBlock:
+    def data(self) -> "TraceData":
+        """
+        The traces of this record, read when they are indexed.
+        """
         if self._data is None:
-            self._data = self.read_data()
+            self._data = TraceData(self)
         return self._data
 
     @property
