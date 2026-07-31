@@ -1,4 +1,5 @@
 import gzip
+import io
 import os
 import shutil
 from io import BytesIO
@@ -418,6 +419,173 @@ def test_data_indexing(tmp_path):
     record.read_data = lambda keys=None, traces=None: reads.append(traces) or data
     record.data[:, 2:5]
     assert reads == [slice(2, 5)]
+
+
+def test_scan_threads_match_sequential(tmp_path):
+    """
+    Splitting one file across threads finds the same shots and segments.
+
+    The chunk is small enough that gathers straddle the block boundaries, which
+    is where the threaded blocks have to be stitched back together.
+    """
+    fh = FileHeader()
+    fh.bfh.ns = 2
+    fh.bfh.DataSampleFormat = 5
+
+    headers = []
+    for shot in range(16):
+        for _ in range(5):
+            hdr = BinaryTraceHeader()
+            hdr.ns = 2
+            hdr.SourceX = 100 * (shot + 1)
+            hdr.SourceY = 7
+            hdr.GroupX = 10 * shot
+            headers.append(hdr)
+
+    data = np.arange(2 * len(headers), dtype=np.float32).reshape(2, len(headers))
+    tmp = tmp_path / "gathers.segy"
+    with open(tmp, "wb") as f:
+        seg.write.write_block(f, SeisBlock(fh, headers, data))
+
+    reference = seg.segy_scan(str(tmp), keys=["GroupX"], chunk=3, threads=1)
+    assert len(reference) == 16
+    assert reference.counts == [5] * 16
+
+    for threads in (2, 4, 8):
+        scan = seg.segy_scan(str(tmp), keys=["GroupX"], chunk=3, threads=threads)
+        assert scan.shots == reference.shots
+        assert scan.counts == reference.counts
+        assert [r.segments for r in scan.records] == [
+            r.segments for r in reference.records
+        ]
+        assert [r.summary for r in scan.records] == [
+            r.summary for r in reference.records
+        ]
+        assert np.array_equal(scan[3].data, reference[3].data)
+
+
+def test_read_budget(tmp_path):
+    """
+    The block size follows what the filesystem reports, within bounds.
+    """
+    tmp = tmp_path / "model.segy"
+    _write_model(tmp, ntraces=4, ns=4)
+
+    budget = seg.scan._read_budget(str(tmp))
+    assert seg.scan.DEFAULT_READ_BYTES <= budget <= seg.scan.MAX_READ_BYTES
+
+    # Filesystems doing their own buffering, and paths that cannot be queried,
+    # fall back to the default
+    assert seg.scan._read_budget(str(tmp), fs=fsspec.filesystem("file")) == \
+        seg.scan.DEFAULT_READ_BYTES
+    assert seg.scan._read_budget(str(tmp_path / "absent.segy")) == \
+        seg.scan.DEFAULT_READ_BYTES
+
+
+def test_scan_read_blocks_are_bounded(tmp_path):
+    """
+    A chunk larger than the read budget is split, so long traces and many
+    threads cannot grow what a scan holds in memory.
+    """
+    ns, ntraces = 8, 40
+    tmp = tmp_path / "model.segy"
+    _write_model(tmp, ntraces=ntraces, ns=ns)
+    trace_size = 240 + ns * 4
+
+    with open(tmp, "rb") as f:
+        f.seek(3600)
+        blocks = list(
+            seg.scan._iter_trace_columns(
+                f, 3600, ntraces, ns, ["SourceX"], chunk=1000,
+                max_bytes=4 * trace_size,
+            )
+        )
+
+    assert [found for _, _, found in blocks] == [4] * 10
+    assert [base for base, _, _ in blocks] == [
+        3600 + 4 * trace_size * i for i in range(10)
+    ]
+    # The traces are all still accounted for once the blocks are put together
+    assert seg.segy_scan(str(tmp), chunk=1000).counts == [ntraces]
+
+
+def test_record_traceheaders(tmp_path):
+    """
+    The headers of a record are read on first access and then kept.
+    """
+    tmp = tmp_path / "model.segy"
+    _write_model(tmp, ntraces=4, ns=4)
+    record = seg.segy_scan(str(tmp))[0]
+
+    headers = record.traceheaders
+    assert [h.GroupX for h in headers] == [0, 10, 20, 30]
+    assert record.traceheaders is headers
+
+
+def test_scan_stops_at_end_of_file(tmp_path):
+    """
+    Asking for more traces than the file holds stops at the last whole one.
+    """
+    ns, ntraces = 8, 4
+    tmp = tmp_path / "model.segy"
+    _write_model(tmp, ntraces=ntraces, ns=ns)
+    trace_size = 240 + ns * 4
+
+    # A file cut in the middle of its last trace keeps the whole ones only
+    with open(tmp, "r+b") as f:
+        f.truncate(3600 + (ntraces - 1) * trace_size + 100)
+
+    with open(tmp, "rb") as f:
+        f.seek(3600)
+        blocks = list(
+            seg.scan._iter_trace_columns(
+                f, 3600, ntraces + 5, ns, ["SourceX"], chunk=2
+            )
+        )
+
+    assert sum(found for _, _, found in blocks) == ntraces - 1
+    assert seg.segy_scan(str(tmp)).counts == [ntraces - 1]
+
+
+def test_read_exactly_handles_short_reads():
+    """
+    A file-like object answering in dribs still yields whole traces.
+    """
+    class Trickle(io.BytesIO):
+        """Return at most seven bytes per read, as a slow stream would."""
+
+        def read(self, size=-1):
+            return super().read(min(size, 7) if size > 0 else size)
+
+    stream = Trickle(b"abcdefghij")
+    assert seg.scan._read_exactly(stream, 10) == b"abcdefghij"
+    assert seg.scan._read_exactly(stream, 4) == b""
+
+    ns, ntraces = 2, 3
+    trace_size = 240 + ns * 4
+    raw = bytes(range(256)) * ((trace_size * ntraces) // 256 + 1)
+    blocks = list(
+        seg.scan._iter_trace_columns(
+            Trickle(raw[:trace_size * ntraces]), 0, ntraces, ns, ["SourceX"],
+            chunk=2,
+        )
+    )
+    assert sum(found for _, _, found in blocks) == ntraces
+
+
+def test_split_traces():
+    """
+    Trace ranges cover every trace and stay at least one chunk long.
+    """
+    assert seg.scan._split_traces(10, 4, 1) == [(0, 10)]
+    assert seg.scan._split_traces(10, 4, 4) == [(0, 5), (5, 5)]
+    assert seg.scan._split_traces(3, 4, 4) == [(0, 3)]
+    assert seg.scan._split_traces(0, 4, 4) == [(0, 0)]
+
+    blocks = seg.scan._split_traces(1000, 16, 8)
+    assert len(blocks) == 8
+    assert sum(count for _, count in blocks) == 1000
+    assert [start for start, _ in blocks] == [125 * i for i in range(8)]
 
 
 def test_read_trace_range_segments(tmp_path):

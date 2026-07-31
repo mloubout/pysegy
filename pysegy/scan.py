@@ -6,7 +6,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 import fnmatch
 import os
-import struct
 import threading
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -21,11 +20,17 @@ from .types import (
     SeisBlock,
     TH_BYTE2SAMPLE,
 )
-from .utils import detect_depth_keys, get_header, open_file
+from .utils import _check_scale, detect_depth_keys, get_header, open_file
 
 # Trace sorting code (binary file header) for horizontally stacked data, i.e.
 # data that holds no gathers, such as a stack or a property model
 STACKED_SORTING = 4
+
+# Bounds on the block a scanning thread reads at once, see _read_budget. Only
+# the headers of a block are kept, so these also cap what a scan holds in
+# memory, no matter how long the traces are or how many threads read the file
+DEFAULT_READ_BYTES = 2 * 1024 * 1024
+MAX_READ_BYTES = 8 * 1024 * 1024
 
 
 class TraceData:
@@ -291,72 +296,159 @@ def _merge_records(
     )
 
 
-def _parse_header(buf: bytes, keys: Iterable[str]) -> BinaryTraceHeader:
+def _decode_columns(
+    buf: bytes, count: int, trace_size: int, keys: Iterable[str]
+) -> Dict[str, np.ndarray]:
     """
-    Return a :class:`BinaryTraceHeader` parsed from ``buf``.
+    Decode ``keys`` for the ``count`` traces packed in ``buf``.
+
+    Scanning only ever looks at a handful of fields, so the headers are decoded
+    one field at a time across all traces instead of one trace at a time. The
+    result is a column per field rather than a header object per trace, which
+    keeps a whole-file scan out of Python's per-trace overhead.
 
     Parameters
     ----------
     buf : bytes
-        240-byte buffer containing the raw trace header.
+        Raw bytes holding ``count`` consecutive traces.
+    count : int
+        Number of traces contained in ``buf``.
+    trace_size : int
+        Size in bytes of one trace, header included.
     keys : Iterable[str]
-        Header fields to decode from ``buf``.
+        Header fields to decode.
 
     Returns
     -------
-    BinaryTraceHeader
-        Trace header populated with the requested fields.
+    dict
+        Mapping of header name to an integer array with one entry per trace.
     """
-    th = BinaryTraceHeader()
+    raw = np.frombuffer(buf, dtype=np.uint8, count=count * trace_size)
+    raw = raw.reshape(count, trace_size)
+    columns: Dict[str, np.ndarray] = {}
     for k in keys:
         offset, size = TH_BYTE2SAMPLE[k]
-        fmt = ">i" if size == 4 else ">h"
-        val = struct.unpack_from(fmt, buf, offset)[0]
-        setattr(th, k, val)
-    th.keys_loaded = list(keys)
-    return th
+        dtype = ">i4" if size == 4 else ">i2"
+        field_bytes = raw[:, offset:offset + size].copy()
+        columns[k] = field_bytes.view(dtype).ravel().astype(np.int64)
+    return columns
+
+
+def _scaled_column(columns: Dict[str, np.ndarray], name: str) -> np.ndarray:
+    """
+    Return the values of ``name`` with the SEGY scalar applied.
+
+    This is the vectorized counterpart of :func:`pysegy.utils.get_header`: a
+    positive scalar multiplies the field, a negative one divides it, and zero
+    leaves it untouched.
+    """
+    values = columns[name]
+    scalable, scalar_name = _check_scale(name)
+    if not scalable or scalar_name not in columns:
+        return values
+    factors = columns[scalar_name]
+    scaled = values.astype(np.float64)
+    positive = factors > 0
+    negative = factors < 0
+    scaled[positive] *= factors[positive]
+    scaled[negative] /= np.abs(factors[negative])
+    return scaled
 
 
 def _update_summary(
     summary: Dict[str, Tuple[float, float]],
-    th: BinaryTraceHeader,
-    keys: Iterable[str],
+    values: Dict[str, np.ndarray],
+    span: slice,
 ) -> None:
     """
-    Update ``summary`` with values from ``th``.
+    Widen ``summary`` with the ``span`` of traces held in ``values``.
 
     Parameters
     ----------
     summary : dict
-        Mapping of header name to ``(min, max)`` tuple.
-    th : BinaryTraceHeader
-        Header providing new values.
-    keys : Iterable[str]
-        Header fields to include in the summary.
+        Mapping of header name to ``(min, max)`` tuple, updated in place.
+    values : dict
+        Mapping of header name to the scaled column of that field.
+    span : slice
+        Range of traces contributing to the record being summarised.
     """
-    for k in keys:
-        v = get_header([th], k)[0]
+    for k, column in values.items():
+        block = column[span]
+        low, high = block.min().item(), block.max().item()
         if k in summary:
-            mn, mx = summary[k]
-            if v < mn:  # pragma: no cover
-                mn = v
-            if v > mx:
-                mx = v
-            summary[k] = (mn, mx)
+            known_low, known_high = summary[k]
+            summary[k] = (min(known_low, low), max(known_high, high))
         else:
-            summary[k] = (v, v)
+            summary[k] = (low, high)
 
 
-def _iter_trace_headers(
+def _read_budget(path: str, fs=None) -> int:
+    """
+    Return how many bytes a scanning thread should read from ``path`` at once.
+
+    Filesystems advertise the transfer size they are happiest with: APFS and
+    NFS report a megabyte, most local Linux filesystems only their block size.
+    Reading a couple of those at a time measures fastest, being large enough to
+    stream yet small enough that readahead keeps running ahead of the scan
+    instead of stalling it on one long request. The hint is clamped so that
+    neither a tiny nor an enormous one decides how much memory a scan needs.
+
+    Parameters
+    ----------
+    path : str
+        File about to be scanned.
+    fs : filesystem-like object, optional
+        Filesystem the file lives on. Non-local ones do their own blocking and
+        buffering, so the default is used for them.
+
+    Returns
+    -------
+    int
+        Block size in bytes, between ``DEFAULT_READ_BYTES`` and
+        ``MAX_READ_BYTES``.
+    """
+    if fs is not None or not hasattr(os, "statvfs"):
+        return DEFAULT_READ_BYTES
+    try:
+        hint = max(os.stat(path).st_blksize, os.statvfs(path).f_bsize)
+    except OSError:
+        return DEFAULT_READ_BYTES
+    return min(max(2 * hint, DEFAULT_READ_BYTES), MAX_READ_BYTES)
+
+
+def _read_exactly(f, size: int) -> bytes:
+    """
+    Read ``size`` bytes from ``f``, or what is left of it.
+
+    A single ``read`` is allowed to come back short, which remote filesystems
+    do, and a block that stopped in the middle of a trace would drop the rest
+    of the file from the scan. Reading until the file gives nothing back keeps
+    a short read from being mistaken for the end of the file.
+    """
+    buf = f.read(size)
+    if len(buf) == size:
+        return buf
+
+    parts = [buf]
+    got = len(buf)
+    while got < size and buf:
+        buf = f.read(size - got)
+        parts.append(buf)
+        got += len(buf)
+    return b"".join(parts)
+
+
+def _iter_trace_columns(
     f,
     start: int,
     count: int,
     ns: int,
     keys: Iterable[str],
     chunk: int = 1024,
-) -> Iterable[Tuple[int, BinaryTraceHeader]]:
+    max_bytes: int = DEFAULT_READ_BYTES,
+) -> Iterable[Tuple[int, Dict[str, np.ndarray], int]]:
     """
-    Yield offsets and headers from ``f`` starting at ``start``.
+    Yield decoded header columns for blocks of traces read from ``f``.
 
     Parameters
     ----------
@@ -371,23 +463,35 @@ def _iter_trace_headers(
     keys : Iterable[str]
         Header fields to decode.
     chunk : int, optional
-        Number of traces to read per block.
+        Number of traces to read per block. Blocks are shortened when that many
+        traces would not fit in ``max_bytes``.
+    max_bytes : int, optional
+        Largest block to read at once, as returned by :func:`_read_budget`.
 
     Yields
     ------
     tuple
-        ``(offset, header)`` for each trace encountered.
+        ``(offset, columns, ntraces)`` for each block, where ``offset`` is the
+        byte position of its first trace.
     """
     trace_size = 240 + ns * 4
+    keys = list(keys)
+    # A block holds whole traces, so files with long traces read fewer of them
+    # at once: this is what bounds the memory a scan needs, per thread
+    chunk = max(1, min(chunk, max_bytes // trace_size))
     pos = start
     remaining = count
     while remaining > 0:
-        n = min(chunk, remaining)
-        buf = f.read(trace_size * n)
-        for i in range(n):
-            base = i * trace_size
-            hdr = _parse_header(buf[base:base + 240], keys)
-            yield pos + base, hdr
+        buf = _read_exactly(f, trace_size * min(chunk, remaining))
+        n = len(buf) // trace_size
+        if n == 0:
+            # The file ends before the traces its size announced
+            break
+        columns = _decode_columns(buf, n, trace_size, keys)
+        # Let the block go before the next one is read, so a scan holds one
+        # block per thread rather than two
+        buf = None
+        yield pos, columns, n
         pos += n * trace_size
         remaining -= n
 
@@ -573,6 +677,170 @@ class SegyScan:
     __repr__ = __str__
 
 
+def _split_traces(total: int, chunk: int, blocks: int) -> List[Tuple[int, int]]:
+    """
+    Split ``total`` traces into at most ``blocks`` contiguous ranges.
+
+    A range is never shorter than ``chunk`` traces: below that the threads spend
+    more time opening the file than reading it.
+
+    Returns
+    -------
+    list of tuple
+        ``(first trace, number of traces)`` for each range, in file order.
+    """
+    if total <= 0:
+        return [(0, 0)]
+    usable = max(1, min(blocks, total // max(chunk, 1)))
+    size = -(-total // usable)
+    return [
+        (start, min(size, total - start))
+        for start in range(0, total, size)
+    ]
+
+
+def _scan_range(
+    path: str,
+    start: int,
+    count: int,
+    ns: int,
+    trace_keys: List[str],
+    summary_keys: List[str],
+    coord_keys: Tuple[str, str, str],
+    chunk: int,
+    fs=None,
+) -> Tuple[List[Tuple[tuple, int, int]], Dict[tuple, dict]]:
+    """
+    Scan ``count`` traces of ``path`` starting at trace ``start``.
+
+    Parameters
+    ----------
+    path : str
+        SEGY file to scan.
+    start : int
+        Index of the first trace to look at.
+    count : int
+        Number of traces to scan.
+    ns : int
+        Samples per trace.
+    trace_keys : list of str
+        Header fields to decode.
+    summary_keys : list of str
+        Header fields to summarise.
+    coord_keys : tuple of str
+        Names of the two coordinates and the depth grouping traces into shots.
+    chunk : int
+        Number of traces to read per block.
+    fs : filesystem-like object, optional
+        Filesystem providing ``open`` if reading from non-local storage.
+
+    Returns
+    -------
+    tuple
+        ``(runs, summaries)`` where ``runs`` lists ``(coordinates, offset,
+        ntraces)`` for every stretch of traces sharing a position, in file
+        order, and ``summaries`` maps coordinates to their header ranges.
+    """
+    trace_size = 240 + ns * 4
+    max_bytes = _read_budget(path, fs)
+    runs: List[Tuple[tuple, int, int]] = []
+    summaries: Dict[tuple, dict] = {}
+
+    with open_file(path, "rb", fs) as f:
+        f.seek(3600 + start * trace_size)
+        for base, columns, found in _iter_trace_columns(
+            f, 3600 + start * trace_size, count, ns, trace_keys, chunk, max_bytes
+        ):
+            coords = [
+                _scaled_column(columns, k).astype(np.float32) for k in coord_keys
+            ]
+            summarised = {k: _scaled_column(columns, k) for k in summary_keys}
+
+            # Traces sharing a position belong to one segment, so only the
+            # traces where the position moves have to be looked at
+            moved = np.ones(found, dtype=bool)
+            moved[1:] = (
+                (coords[0][1:] != coords[0][:-1])
+                | (coords[1][1:] != coords[1][:-1])
+                | (coords[2][1:] != coords[2][:-1])
+            )
+            starts = np.flatnonzero(moved)
+            stops = np.append(starts[1:], found)
+
+            for first, last in zip(starts.tolist(), stops.tolist()):
+                src = (coords[0][first], coords[1][first], coords[2][first])
+                if runs and runs[-1][0] == src:
+                    # Same position as the tail of the previous block
+                    runs[-1] = (src, runs[-1][1], runs[-1][2] + last - first)
+                else:
+                    runs.append((src, base + first * trace_size, last - first))
+                if summary_keys:
+                    _update_summary(
+                        summaries.setdefault(src, {}),
+                        summarised,
+                        slice(first, last),
+                    )
+
+    return runs, summaries
+
+
+def _records_from_runs(
+    scanned: List[Tuple[List[Tuple[tuple, int, int]], Dict[tuple, dict]]],
+    path: str,
+    fh: FileHeader,
+    depth_key: str,
+    rec_depth_key: str,
+    by_receiver: bool,
+    fs=None,
+) -> Dict[tuple, ShotRecord]:
+    """
+    Build the records of ``path`` from the runs found in each scanned block.
+
+    ``scanned`` holds the ``(runs, summaries)`` of consecutive trace ranges, so
+    a shot split across a block boundary is joined back into one segment here.
+    """
+    ns = fh.bfh.ns
+    trace_size = 240 + ns * 4
+    records: Dict[tuple, ShotRecord] = {}
+
+    for runs, summaries in scanned:
+        for src, offset, count in runs:
+            rec = records.get(src)
+            if rec is None:
+                rec = ShotRecord(
+                    path,
+                    src,
+                    fh,
+                    depth_key if by_receiver else rec_depth_key,
+                    rec_depth_key if by_receiver else depth_key,
+                    by_receiver,
+                    [],
+                    {},
+                    ns,
+                    fh.bfh.dt,
+                    fs,
+                )
+                records[src] = rec
+
+            last_offset, last_count = rec.segments[-1] if rec.segments else (0, 0)
+            if rec.segments and last_offset + last_count * trace_size == offset:
+                rec.segments[-1] = (last_offset, last_count + count)
+            else:
+                rec.segments.append((offset, count))
+
+        for src, summary in summaries.items():
+            known = records[src].summary
+            for name, (low, high) in summary.items():
+                if name in known:
+                    known[name] = (
+                        min(known[name][0], low), max(known[name][1], high)
+                    )
+                else:
+                    known[name] = (low, high)
+
+    return records
+
+
 def _scan_file(
     path: str,
     keys: Optional[Iterable[str]] = None,
@@ -581,6 +849,7 @@ def _scan_file(
     rec_depth_key: Optional[str] = None,
     fs=None,
     by_receiver: bool = False,
+    threads: int = 1,
 ) -> SegyScan:
     """
     Scan ``path`` for shot locations.
@@ -601,6 +870,9 @@ def _scan_file(
         inferred alongside ``depth_key``.
     by_receiver : bool, optional
         Group traces by receiver coordinates instead of source coordinates.
+    threads : int, optional
+        Number of threads reading this file at once. The traces are split into
+        that many contiguous ranges, one per thread.
 
     fs : filesystem-like object, optional
         Filesystem providing ``open`` if reading from non-local storage.
@@ -645,70 +917,37 @@ def _scan_file(
         ns = fh.bfh.ns
         f.seek(0, os.SEEK_END)
         total = (f.tell() - 3600) // (240 + ns * 4)
-        f.seek(3600)
 
-        records: Dict[Tuple[int, int, int], ShotRecord] = {}
+    if by_receiver:
+        coord_keys = ("GroupX", "GroupY", rec_depth_key)
+    else:
+        coord_keys = ("SourceX", "SourceY", depth_key)
+    summary_keys = list(keys or [])
 
-        previous: Optional[Tuple[int, int, int]] = None
-        seg_start = 0
-        seg_count = 0
-
-        for offset, th in _iter_trace_headers(
-            f,
-            3600,
-            total,
-            ns,
-            trace_keys,
-            chunk,
-        ):
-            if by_receiver:
-                src = (
-                    np.float32(get_header([th], "GroupX")[0]),
-                    np.float32(get_header([th], "GroupY")[0]),
-                    np.float32(get_header([th], rec_depth_key)[0]),
+    blocks = _split_traces(total, chunk, max(threads, 1))
+    vprint(f"{thread} reading {total} traces of {path} in {len(blocks)} blocks")
+    if len(blocks) == 1:
+        scanned = [
+            _scan_range(
+                path, blocks[0][0], blocks[0][1], ns, trace_keys, summary_keys,
+                coord_keys, chunk, fs,
+            )
+        ]
+    else:
+        with ThreadPoolExecutor(max_workers=len(blocks)) as pool:
+            futures = [
+                pool.submit(
+                    _scan_range, path, start, count, ns, trace_keys,
+                    summary_keys, coord_keys, chunk, fs,
                 )
-            else:
-                src = (
-                    np.float32(get_header([th], "SourceX")[0]),
-                    np.float32(get_header([th], "SourceY")[0]),
-                    np.float32(get_header([th], depth_key)[0]),
-                )
+                for start, count in blocks
+            ]
+            # Kept in block order so the segments stay in file order
+            scanned = [fut.result() for fut in futures]
 
-            rec = records.get(src)
-            if rec is None:
-                rec = ShotRecord(
-                    path,
-                    src,
-                    fh,
-                    depth_key if by_receiver else rec_depth_key,
-                    rec_depth_key if by_receiver else depth_key,
-                    by_receiver,
-                    [],
-                    {},
-                    ns,
-                    fh.bfh.dt,
-                    fs,
-                )
-                records[src] = rec
-            _update_summary(rec.summary, th, keys or [])
-
-            # New segment begins when the source position changes
-            if previous is None:
-                previous = src
-                seg_start = offset
-                seg_count = 1
-            elif src == previous:
-                seg_count += 1
-            else:
-                records[previous].segments.append((seg_start, seg_count))
-                previous = src
-                seg_start = offset
-                seg_count = 1
-
-        if previous is not None:
-            # Append the final segment for the last shot
-            records[previous].segments.append((seg_start, seg_count))
-
+    records = _records_from_runs(
+        scanned, path, fh, depth_key, rec_depth_key, by_receiver, fs
+    )
     record_list = sorted(records.values(), key=lambda r: r.coordinates)
     if record_list and not _is_gathered(fh, record_list):
         vprint(f"{thread} {path} holds no gathers, scanned as a single record")
@@ -785,8 +1024,11 @@ def segy_scan(
             files = fs.glob(f"{directory.rstrip('/')}/{pattern}")
     files.sort()
 
+    # Threads left over once every file has one are used within the files
+    per_file = max(1, threads // len(files)) if files else 1
     vprint(
         f"Scanning {len(files)} files in {directory} with {threads} threads"
+        f" ({per_file} per file)"
     )
     records: List[ShotRecord] = []
     with ThreadPoolExecutor(max_workers=threads) as pool:
@@ -800,6 +1042,7 @@ def segy_scan(
                 rec_depth_key,
                 fs,
                 by_receiver,
+                per_file,
             ): f
             for f in files
         }

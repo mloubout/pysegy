@@ -43,18 +43,19 @@ pytest -vs
 
 The tests run automatically on GitHub Actions with coverage reports uploaded to Codecov.
 
-## Read benchmark
+## Scan benchmark
 
-The read benchmark compares median throughput, speedup, and parallel
-efficiency for multiple process counts:
+The scan benchmark compares sequential and threaded scanning of a file or
+directory:
 
 ```bash
-python benchmarks/read_benchmark.py /path/to/large.segy --workers 1 2 4 8
+python benchmarks/scan_benchmark.py /path/to/large.segy
+python benchmarks/scan_benchmark.py /path/to/survey --pattern '*.segy'
 ```
 
-Use a representative large file and repeat the benchmark on the target
-storage system. Small files commonly run faster with one worker because
-process startup and inter-process transfer costs outweigh parallel decoding.
+Without an argument the bundled `data` directory is scanned. Threading pays
+off once several files or many shots are involved; a single small file is
+dominated by the fixed cost of opening it.
 
 ## Inspiration
 
