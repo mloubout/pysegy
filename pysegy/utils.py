@@ -180,6 +180,30 @@ def _depth_score(values: Iterable[float]) -> Tuple[int, float]:
     return (len(cleaned), span)
 
 
+def _constant_per_position(values: Iterable[float], positions) -> bool:
+    """
+    Whether ``values`` stays constant across traces sharing a position.
+
+    A depth belongs to the point it was measured at, so every trace recorded
+    at the same source (or receiver) position must report the same depth. A
+    field that varies within a position holds something else entirely -- a
+    midpoint coordinate, a counter or a time -- and must not be mistaken for a
+    depth. Files that carry no coordinates at all have no positions to reason
+    about, so the check passes for them.
+
+    ``positions`` is an iterable of ``(x, y)`` tuples, one per value.
+    """
+    positions = list(positions)
+    if not any(x or y for x, y in positions):
+        return True
+
+    seen = {}
+    for pos, val in zip(positions, values):
+        if seen.setdefault(pos, val) != val:
+            return False
+    return True
+
+
 def detect_depth_keys(
     path: str,
     *,
@@ -201,9 +225,11 @@ def detect_depth_keys(
     Returns
     -------
     tuple[str, str]
-        ``(source_key, receiver_key)`` header names. Defaults to
-        ``("SourceDepth", "GroupWaterDepth")`` when no better match is
-        found.
+        ``(source_key, receiver_key)`` header names. Candidates are taken in
+        priority order and must both hold data and stay constant across traces
+        sharing a position, which rules out fields reused for coordinates.
+        Defaults to ``("SourceDepth", "RecGroupElevation")`` when no better
+        match is found.
     """
 
     source_key = _SOURCE_DEPTH_FIELDS[0]
@@ -213,7 +239,8 @@ def detect_depth_keys(
         dict.fromkeys(
             list(_SOURCE_DEPTH_FIELDS)
             + list(_RECEIVER_DEPTH_FIELDS)
-            + ["ElevationScalar", "RecSourceScalar"],
+            + ["ElevationScalar", "RecSourceScalar"]
+            + ["SourceX", "SourceY", "GroupX", "GroupY"],
         )
     )
 
@@ -251,15 +278,30 @@ def detect_depth_keys(
                 return True
         return False
 
+    source_pos = list(
+        zip(get_header(headers, "SourceX"), get_header(headers, "SourceY"))
+    )
+    receiver_pos = list(
+        zip(get_header(headers, "GroupX"), get_header(headers, "GroupY"))
+    )
+
     for candidate in _SOURCE_DEPTH_FIELDS:
         vals = get_header(headers, candidate)
-        if _has_valid(vals):
+        if _has_valid(vals) and _constant_per_position(vals, source_pos):
             source_key = candidate
             break
+    else:
+        # Every populated candidate holds something that is not a depth, so
+        # fall back on an empty field rather than on misread coordinates: the
+        # depth is then a constant 0 and gathers still group by position.
+        for candidate in _SOURCE_DEPTH_FIELDS:
+            if not _has_valid(get_header(headers, candidate)):
+                source_key = candidate
+                break
 
     for candidate in _RECEIVER_DEPTH_FIELDS:
         vals = get_header(headers, candidate)
-        if _has_valid(vals):
+        if _has_valid(vals) and _constant_per_position(vals, receiver_pos):
             receiver_key = candidate
             break
 

@@ -215,6 +215,35 @@ class TestDetectDepthKeys:
         assert source_key == "SourceDepth"
         assert receiver_key == "RecGroupElevation"
 
+    def test_source_depth_reused_for_coordinates_is_rejected(self):
+        # Some processing systems copy the midpoint coordinates into the
+        # depth fields, which then vary trace by trace within a gather.
+        headers = []
+        for shot in range(3):
+            for trace in range(4):
+                th = BinaryTraceHeader()
+                th.ns = 1
+                th.SourceX = 100 * (shot + 1)
+                th.SourceY = 0
+                th.GroupX = 100 * (shot + 1) + 10 * trace
+                th.GroupY = 0
+                th.SourceDepth = 465631 + 4 * shot + trace
+                th.SourceDatumElevation = 8879278 + 4 * shot + trace
+                th.SourceSurfaceElevation = 369
+                th.RecGroupElevation = 350 + trace
+                th.ElevationScalar = 1
+                th.RecSourceScalar = 1
+                headers.append(th)
+
+        dest = self._write_block("depth_coord_fields.segy", headers)
+        source_key, receiver_key = seg.detect_depth_keys(str(dest))
+        assert source_key == "SourceSurfaceElevation"
+        assert receiver_key == "RecGroupElevation"
+
+        scan = seg.segy_scan(str(dest))
+        assert len(scan.records) == 3
+        assert all(rec.ntraces == 4 for rec in scan.records)
+
     def test_segy_scan_uses_detected_keys(self):
         headers = []
         for i in range(4):
