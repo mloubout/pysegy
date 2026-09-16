@@ -676,3 +676,70 @@ def test_get_header_scaling():
 
     raw = seg.get_header(block, "SourceX", scale=False)
     assert raw == [10, 20, 5, 7]
+
+
+def _coords_fixture(tmp_path, ntraces=12, ns=3):
+    """A file whose receiver coordinates need scaling to read back."""
+    fh = FileHeader()
+    fh.bfh.ns = ns
+    fh.bfh.DataSampleFormat = 5
+    headers = []
+    for index in range(ntraces):
+        header = BinaryTraceHeader()
+        header.ns = ns
+        header.SourceX = 1000
+        header.SourceY = 2000
+        header.GroupX = 3000 + index
+        header.GroupY = -4000 - index
+        header.GroupWaterDepth = 10 + index
+        # Exercise all three branches of the scalar rule.
+        header.RecSourceScalar = (10, -100, 0)[index % 3]
+        header.ElevationScalar = (-10, 0, 100)[index % 3]
+        headers.append(header)
+    data = np.arange(ns * ntraces, dtype=np.float32).reshape(ns, ntraces)
+    path = tmp_path / "coords.segy"
+    seg.segy_write(str(path), SeisBlock(fh, headers, data))
+    return path, ntraces
+
+
+def test_read_header_fields_matches_per_trace_read(tmp_path):
+    """The column reader must agree with building a header per trace.
+
+    ``rec_coordinates`` reads a handful of words for every trace of a shot;
+    decoding a field at a time across the block is how the scan already does
+    it, and the two must not disagree.
+    """
+    from pysegy.utils import get_header
+
+    path, ntraces = _coords_fixture(tmp_path)
+    scan = seg.segy_scan(str(path))
+    record = scan[0]
+    keys = ["GroupX", "GroupY", "GroupWaterDepth"]
+
+    bulk = record.read_header_fields(keys)
+    hdrs = record.read_headers(
+        keys=keys + ["RecSourceScalar", "ElevationScalar"]
+    )
+    for key in keys:
+        np.testing.assert_allclose(bulk[key], get_header(hdrs, key))
+
+
+def test_rec_coordinates_apply_the_coordinate_scalar(tmp_path):
+    """Scaled coordinates must match what get_header would have produced."""
+    from pysegy.utils import get_header
+
+    path, ntraces = _coords_fixture(tmp_path)
+    scan = seg.segy_scan(str(path))
+    record = scan[0]
+
+    hdrs = record.read_headers(
+        keys=["GroupX", "GroupY", record.rec_depth_key,
+              "RecSourceScalar", "ElevationScalar"]
+    )
+    expected = np.column_stack((
+        get_header(hdrs, "GroupX"),
+        get_header(hdrs, "GroupY"),
+        get_header(hdrs, record.rec_depth_key),
+    )).astype(np.float32)
+
+    np.testing.assert_allclose(record.rec_coordinates, expected)

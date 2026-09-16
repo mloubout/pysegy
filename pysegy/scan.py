@@ -198,6 +198,50 @@ class ShotRecord:
                     f.seek(ns * 4, os.SEEK_CUR)
         return headers
 
+    def read_header_fields(self, keys: Iterable[str]) -> dict:
+        """
+        Values of ``keys`` for every trace of this shot, as scaled arrays.
+
+        The array form of :meth:`read_headers`, decoding a field at a time
+        across the block the way a scan does, rather than building a header
+        object per trace.
+
+        Parameters
+        ----------
+        keys : Iterable[str]
+            Header words to return.
+
+        Returns
+        -------
+        dict
+            ``{key: ndarray}``, one scaled float array per key.
+        """
+        keys = list(keys)
+        # The scalars have to be decoded alongside the fields they scale:
+        # `_scaled_column` returns the raw value when its scalar is absent,
+        # so omitting them reads coordinates that are quietly 100x out.
+        decoded = list(keys)
+        for key in keys:
+            scalable, scalar_name = _check_scale(key)
+            if scalable and scalar_name not in decoded:
+                decoded.append(scalar_name)
+
+        ns = self.fileheader.bfh.ns
+        parts = {k: [] for k in keys}
+        for offset, count in self.segments:
+            with open_file(self.path, "rb", self.fs) as f:
+                f.seek(offset)
+                for _, columns, _found in _iter_trace_columns(
+                    f, offset, count, ns, decoded, 1024,
+                    _read_budget(self.path, self.fs),
+                ):
+                    for key in keys:
+                        parts[key].append(_scaled_column(columns, key))
+        return {
+            k: (np.concatenate(v) if v else np.zeros(0, dtype=np.float64))
+            for k, v in parts.items()
+        }
+
     @property
     def data(self) -> "TraceData":
         """
@@ -227,18 +271,8 @@ class ShotRecord:
             else:
                 xname, yname, zname = "GroupX", "GroupY", self.rec_depth_key
 
-            hdrs = self.read_headers(
-                keys=[
-                    xname,
-                    yname,
-                    zname,
-                    "RecSourceScalar",
-                    "ElevationScalar",
-                ]
-            )
-            gx = get_header(hdrs, xname)
-            gy = get_header(hdrs, yname)
-            dz = get_header(hdrs, zname)
+            fields = self.read_header_fields([xname, yname, zname])
+            gx, gy, dz = fields[xname], fields[yname], fields[zname]
             self._rec_coords = np.column_stack((gx, gy, dz)).astype(np.float32)
         return self._rec_coords
 
