@@ -936,3 +936,77 @@ def test_receiver_gathers_keep_the_source_coordinates(tmp_path):
         # pickled before the columns were kept.
         record._rec_coords = None
         np.testing.assert_allclose(record.rec_coordinates, expected)
+
+
+def test_sample_interval_scalar_round_trips(tmp_path):
+    """The scalar survives a write and a read, like any other header word.
+
+    It exists because the sample interval is a two-byte word: a depth model
+    coarser than 65.535 m cannot state its step without one.
+    """
+    ns = 3
+    fh = FileHeader()
+    fh.bfh.ns = ns
+    fh.bfh.DataSampleFormat = 5
+    fh.bfh.dt = 10000
+    fh.bfh.SampleIntervalScalar = 10
+    header = BinaryTraceHeader()
+    header.ns = ns
+    header.dt = 10000
+    path = tmp_path / "scaled.segy"
+    seg.segy_write(str(path), SeisBlock(
+        fh, [header], np.zeros((ns, 1), dtype=np.float32)
+    ))
+
+    back = seg.segy_read(str(path))
+    assert back.fileheader.bfh.SampleIntervalScalar == 10
+    assert back.fileheader.bfh.dt == 10000
+
+
+def test_a_file_without_the_scalar_reads_as_zero(tmp_path):
+    """Every file written before the word existed leaves it unassigned.
+
+    Zero means the interval stands as written, so those are unaffected.
+    """
+    ns = 3
+    fh = FileHeader()
+    fh.bfh.ns = ns
+    fh.bfh.DataSampleFormat = 5
+    fh.bfh.dt = 4000
+    header = BinaryTraceHeader()
+    header.ns = ns
+    header.dt = 4000
+    path = tmp_path / "plain.segy"
+    seg.segy_write(str(path), SeisBlock(
+        fh, [header], np.zeros((ns, 1), dtype=np.float32)
+    ))
+
+    assert seg.segy_read(str(path)).fileheader.bfh.SampleIntervalScalar == 0
+
+
+def test_header_fields_land_at_their_declared_offsets(tmp_path):
+    """The binary header is not a packed sequence; it has gaps.
+
+    Written one after another, every field past a gap lands where nothing
+    reads it: the revision number and the fixed-length flag came back as
+    zero however they were set.
+    """
+    ns = 2
+    fh = FileHeader()
+    fh.bfh.ns = ns
+    fh.bfh.DataSampleFormat = 5
+    fh.bfh.SegyFormatRevisionNumber = 256
+    fh.bfh.FixedLengthTraceFlag = 1
+    fh.bfh.NumberOfExtTextualHeaders = 2
+    header = BinaryTraceHeader()
+    header.ns = ns
+    path = tmp_path / "offsets.segy"
+    seg.segy_write(str(path), SeisBlock(
+        fh, [header], np.zeros((ns, 1), dtype=np.float32)
+    ))
+
+    back = seg.segy_read(str(path)).fileheader.bfh
+    assert back.SegyFormatRevisionNumber == 256
+    assert back.FixedLengthTraceFlag == 1
+    assert back.NumberOfExtTextualHeaders == 2
+    assert back.ns == ns

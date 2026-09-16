@@ -36,15 +36,18 @@ def write_fileheader(
         th = th + b" " * (3200 - len(th))
     f.write(th[:3200])
     bfh = fh.bfh
-    size_written = 3200
-    for key in FH_BYTE2SAMPLE:
-        val = getattr(bfh, key)
+    # Placed at the offsets the fields are declared at, not written one
+    # after another: the binary header is not a packed sequence, and the
+    # standard leaves gaps in it.  Writing through those gaps put every
+    # field past one at the wrong place, so `SegyFormatRevisionNumber`,
+    # `FixedLengthTraceFlag` and the count of extended textual headers were
+    # written where nothing reads them and came back as zero.
+    buffer = bytearray(400)
+    for key, offset in FH_BYTE2SAMPLE.items():
         size = 4 if key in ("Job", "Line", "Reel") else 2
-        f.write(pack_int(val, size, bigendian))
-        size_written += size
-    pad = 3600 - size_written
-    if pad > 0:
-        f.write(b"\x00" * pad)
+        at = offset - 3200
+        buffer[at:at + size] = pack_int(getattr(bfh, key), size, bigendian)
+    f.write(bytes(buffer))
 
 
 def write_traceheader(
