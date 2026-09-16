@@ -3,6 +3,7 @@ import io
 import os
 import shutil
 from io import BytesIO
+import urllib.error
 import urllib.request
 
 import fsspec
@@ -162,7 +163,23 @@ BP_URL = (
     "open_data/bpmodel94/Model94_shots.segy.gz"
 )
 
+#: The bucket behind :data:`BP_URL` stopped serving it anonymously: the
+#: object and a listing of its prefix both answer ``403 AccessDenied``, with
+#: or without credentials, while the bucket itself still resolves.  Whether
+#: the object was removed or only made private cannot be told from outside,
+#: since S3 answers 403 rather than 404 to a caller that may not list.
+#:
+#: Marked expected-to-fail on that error alone rather than on any failure:
+#: these tests check what the reader makes of a real survey, and a blanket
+#: xfail would swallow a regression in that as readily as the download.  If
+#: the data comes back they pass again and nothing has to be undone.
+_BP_UNREACHABLE = pytest.mark.xfail(
+    raises=urllib.error.HTTPError,
+    reason=f"{BP_URL} answers 403 AccessDenied since 2026-09-16",
+)
 
+
+@_BP_UNREACHABLE
 def test_bp_model_headers():
     """
     Download a portion of the BP model data and verify header values.
@@ -182,6 +199,7 @@ def test_bp_model_headers():
     assert th.GroupX == 15
 
 
+@_BP_UNREACHABLE
 def test_bp_model_scan(tmp_path):
     """Download the full BP Model dataset and verify shot statistics.
 
