@@ -31,8 +31,8 @@ with st.sidebar:
     pattern = st.text_input("Directory pattern", "*.segy")
     by_receiver = st.toggle("Group by receiver", value=False)
     use_cache = st.toggle("Cache scan metadata", value=True)
-    scan_clicked = st.button("Scan dataset", type="primary", use_container_width=True)
-    if st.button("Clear scan cache", use_container_width=True):
+    scan_clicked = st.button("Scan dataset", type="primary", width="stretch")
+    if st.button("Clear scan cache", width="stretch"):
         removed = clear_cache()
         st.success(f"Removed {removed} cached scan file(s).")
 
@@ -120,7 +120,7 @@ with geometry_tab:
         )
     )
     figure.update_yaxes(scaleanchor="x", scaleratio=1)
-    st.plotly_chart(figure, use_container_width=True)
+    st.plotly_chart(figure, width="stretch")
     if not geometry.size or not geometry[:, :2].any():
         st.warning("No non-zero source or receiver coordinates were detected.")
 
@@ -164,7 +164,7 @@ with gather_tab:
         )
         image.update_layout(xaxis_title="Trace", yaxis_title="Time [s]")
         image.update_yaxes(autorange="reversed")
-        st.plotly_chart(image, use_container_width=True)
+        st.plotly_chart(image, width="stretch")
         st.caption(
             f"Displaying {window.data.shape[1]:,} traces × "
             f"{window.data.shape[0]:,} samples. Large selections are downsampled."
@@ -182,7 +182,7 @@ with headers_tab:
         table = load_header_table(scan, int(record_index), fields)
         header_frame = pd.DataFrame(table.columns)
         header_frame.insert(0, "Trace", table.trace_indices)
-        st.dataframe(header_frame, use_container_width=True, hide_index=True)
+        st.dataframe(header_frame, width="stretch", hide_index=True)
         st.download_button(
             "Download displayed headers as CSV",
             header_frame.to_csv(index=False),
@@ -192,7 +192,7 @@ with headers_tab:
         if fields:
             histogram_field = st.selectbox("Histogram field", fields)
             histogram = px.histogram(header_frame, x=histogram_field)
-            st.plotly_chart(histogram, use_container_width=True)
+            st.plotly_chart(histogram, width="stretch")
         if len(header_frame) < record.ntraces:
             st.caption(
                 f"Showing {len(header_frame):,} evenly sampled rows from "
