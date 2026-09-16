@@ -10,6 +10,12 @@ import streamlit as st
 
 from pysegy.types import TH_FIELDS
 from pysegy.viewer.cache import clear_cache
+from pysegy.viewer.display import (
+    amplitude_limit,
+    horizontal_axis,
+    prepare_wiggles,
+    scaled_amplitudes,
+)
 from pysegy.viewer.services import (
     DEFAULT_HEADER_FIELDS,
     dataset_summary,
@@ -138,7 +144,19 @@ with gather_tab:
         record.ns,
         (0, record.ns),
     )
-    percentile = st.slider("Amplitude percentile", 80, 100, 99)
+    display_a, display_b, display_c = st.columns(3)
+    display_mode = display_a.selectbox("Display", ["Image", "Wiggle"])
+    axis_mode = display_b.selectbox(
+        "Horizontal axis", ["Trace number", "Receiver X"]
+    )
+    color_scale = display_c.selectbox(
+        "Color scale", ["Greys", "RdBu", "Viridis"],
+        disabled=display_mode == "Wiggle",
+    )
+    gain_a, gain_b, gain_c = st.columns(3)
+    percentile = gain_a.slider("Amplitude percentile", 80, 100, 99)
+    time_gain = gain_b.slider("Time gain", 0.0, 3.0, 0.0, 0.25)
+    reverse_polarity = gain_c.toggle("Reverse polarity", value=False)
     try:
         window = load_gather(
             scan,
@@ -148,23 +166,47 @@ with gather_tab:
             sample_start=sample_range[0],
             sample_stop=sample_range[1],
         )
-        limit = float(abs(window.data).max())
-        if window.data.size:
-            limit = float(np.percentile(abs(window.data), percentile))
-        image = go.Figure(
-            go.Heatmap(
-                z=window.data,
-                x=window.trace_indices,
-                y=window.time_seconds,
-                colorscale="Greys",
-                zmin=-limit,
-                zmax=limit,
-                colorbar={"title": "Amplitude"},
-            )
+        amplitudes = scaled_amplitudes(
+            window,
+            time_gain=time_gain,
+            reverse_polarity=reverse_polarity,
         )
-        image.update_layout(xaxis_title="Trace", yaxis_title="Time [s]")
-        image.update_yaxes(autorange="reversed")
-        st.plotly_chart(image, width="stretch")
+        x_values, x_title = horizontal_axis(window, axis_mode)
+        if display_mode == "Image":
+            limit = amplitude_limit(amplitudes, percentile)
+            figure = go.Figure(
+                go.Heatmap(
+                    z=amplitudes,
+                    x=x_values,
+                    y=window.time_seconds,
+                    colorscale=color_scale,
+                    zmin=-limit,
+                    zmax=limit,
+                    colorbar={"title": "Amplitude"},
+                )
+            )
+        else:
+            wiggles = prepare_wiggles(
+                amplitudes,
+                x_values,
+                window.time_seconds,
+            )
+            figure = go.Figure()
+            for index, position in enumerate(wiggles.positions):
+                figure.add_trace(go.Scattergl(
+                    x=wiggles.traces[:, index],
+                    y=wiggles.time_seconds,
+                    mode="lines",
+                    line={"color": "black", "width": 1},
+                    name=f"{position:g}",
+                    hovertemplate=(
+                        f"position={position:g}<br>time=%{{y:.4f}} s<extra></extra>"
+                    ),
+                    showlegend=False,
+                ))
+        figure.update_layout(xaxis_title=x_title, yaxis_title="Time [s]")
+        figure.update_yaxes(autorange="reversed")
+        st.plotly_chart(figure, width="stretch")
         st.caption(
             f"Displaying {window.data.shape[1]:,} traces × "
             f"{window.data.shape[0]:,} samples. Large selections are downsampled."

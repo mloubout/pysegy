@@ -12,6 +12,12 @@ from pysegy.viewer.services import (
     source_geometry,
 )
 from pysegy.viewer.cache import clear_cache, dataset_fingerprint, load_cached_scan
+from pysegy.viewer.display import (
+    amplitude_limit,
+    horizontal_axis,
+    prepare_wiggles,
+    scaled_amplitudes,
+)
 
 
 DATAFILE = os.path.join(
@@ -50,6 +56,45 @@ def test_load_gather_validates_selection(scan):
         load_gather(scan, 0, trace_start=1, trace_stop=1)
     with pytest.raises(ValueError, match="Display limits"):
         load_gather(scan, 0, max_traces=0)
+
+
+def test_display_transformations_are_non_destructive(scan):
+    window = load_gather(scan, 0, max_traces=12, max_samples=40)
+    original = window.data.copy()
+    transformed = scaled_amplitudes(
+        window, time_gain=1.0, reverse_polarity=True
+    )
+    assert transformed.shape == original.shape
+    assert np.array_equal(window.data, original)
+    assert amplitude_limit(transformed, 95) > 0
+    with pytest.raises(ValueError, match="Time gain"):
+        scaled_amplitudes(window, time_gain=4)
+
+
+def test_amplitude_limit_handles_empty_and_nonfinite_data():
+    assert amplitude_limit(np.array([])) == 1.0
+    assert amplitude_limit(np.array([0.0, np.nan, np.inf])) == 1.0
+    with pytest.raises(ValueError, match="percentile"):
+        amplitude_limit(np.array([1.0]), 0)
+
+
+def test_horizontal_axes_and_wiggle_limit(scan):
+    window = load_gather(scan, 0, max_traces=30, max_samples=50)
+    trace_axis, trace_label = horizontal_axis(window, "Trace number")
+    receiver_axis, receiver_label = horizontal_axis(window, "Receiver X")
+    assert trace_label == "Trace"
+    assert receiver_label == "Receiver X"
+    assert np.array_equal(trace_axis, window.trace_indices)
+    assert np.array_equal(receiver_axis, window.receiver_coordinates[:, 0])
+
+    wiggles = prepare_wiggles(
+        window.data, trace_axis, window.time_seconds, max_traces=7
+    )
+    assert wiggles.traces.shape[1] <= 7
+    assert wiggles.traces.shape[0] == window.data.shape[0]
+    assert len(wiggles.positions) == wiggles.traces.shape[1]
+    with pytest.raises(ValueError, match="Unknown horizontal axis"):
+        horizontal_axis(window, "Offset")
 
 
 def test_load_header_table_is_scaled_and_bounded(scan):

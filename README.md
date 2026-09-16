@@ -48,7 +48,9 @@ shows survey dimensions, gather geometry, and a bounded, automatically
 downsampled seismic image for the selected gather. Scan metadata is cached in
 the platform's user cache directory and can be cleared from the sidebar. The
 trace-header view provides a searchable table, histogram, and CSV download for
-selected fields.
+selected fields. Gather controls include image and wiggle displays, trace or
+receiver-coordinate axes, amplitude clipping, time gain, polarity, and color
+scale selection.
 
 ## Testing
 

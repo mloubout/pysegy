@@ -12,6 +12,7 @@ from .services import (
     load_gather,
     load_header_table,
 )
+from .display import amplitude_limit, horizontal_axis, prepare_wiggles, scaled_amplitudes
 
 __all__ = [
     "DatasetSummary",
@@ -20,4 +21,8 @@ __all__ = [
     "dataset_summary",
     "load_gather",
     "load_header_table",
+    "amplitude_limit",
+    "horizontal_axis",
+    "prepare_wiggles",
+    "scaled_amplitudes",
 ]
