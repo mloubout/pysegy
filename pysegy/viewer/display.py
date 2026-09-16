@@ -61,13 +61,13 @@ SEISMIC_COLORSCALE = anchored_colorscale([
     (0.78, "#c52832"), (0.92, "#7a0019"), (1.00, "#7a0019"),
 ])
 
-# A true diverging RTM scale: equal-distance stops on either side of a neutral
-# zero, with cool negative amplitudes and warm positive amplitudes.
+# A true diverging RTM scale: equal-distance stops on either side of a light
+# neutral zero, with cool negative amplitudes and warm positive amplitudes.
 RTM_COLORSCALE = anchored_colorscale([
-    (0.00, "#00d5e8"), (0.08, "#00d5e8"), (0.20, "#1770d3"),
-    (0.34, "#52358c"), (0.46, "#241b38"), (0.50, "#050505"),
-    (0.54, "#3b1d0b"), (0.66, "#a93616"), (0.80, "#eb7020"),
-    (0.92, "#ffd54a"), (1.00, "#ffd54a"),
+    (0.00, "#2b176d"), (0.08, "#2b176d"), (0.20, "#2447ad"),
+    (0.34, "#1596c0"), (0.46, "#b8e3df"), (0.50, "#f7f5ef"),
+    (0.54, "#f2dfaf"), (0.66, "#efaa38"), (0.80, "#d85624"),
+    (0.92, "#8c1d3c"), (1.00, "#8c1d3c"),
 ])
 
 ORANGE_BLACK_COLORSCALE = anchored_colorscale([
