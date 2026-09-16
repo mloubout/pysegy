@@ -84,9 +84,9 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../site_libs/quarto-html/quarto-syntax-highlighting-64a204ab8560d761af7679ceaba22944.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-f83c246346592b24d02aa84ae3974412.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="../site_libs/bootstrap/bootstrap-dark-339ba52e4fd80c225814af5034ff41a1.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
-<link href="../site_libs/bootstrap/bootstrap-f83c246346592b24d02aa84ae3974412.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-89af0c2d685ccb09a4d7d65decb66752.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-bab876c673f34c0c1affe56ab500fcad.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-89af0c2d685ccb09a4d7d65decb66752.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -502,6 +502,7 @@ gtag('config', 'G-ERCRWL13YZ', { 'anonymize_ip': true});
   <li><a href="#methods" id="toc-methods" class="nav-link" data-scroll-target="#methods">Methods</a>
   <ul class="collapse">
   <li><a href="#pysegy.ShotRecord.read_data" id="toc-pysegy.ShotRecord.read_data" class="nav-link" data-scroll-target="#pysegy.ShotRecord.read_data">read_data</a></li>
+  <li><a href="#pysegy.ShotRecord.read_header_fields" id="toc-pysegy.ShotRecord.read_header_fields" class="nav-link" data-scroll-target="#pysegy.ShotRecord.read_header_fields">read_header_fields</a></li>
   <li><a href="#pysegy.ShotRecord.read_headers" id="toc-pysegy.ShotRecord.read_headers" class="nav-link" data-scroll-target="#pysegy.ShotRecord.read_headers">read_headers</a></li>
   </ul></li>
   </ul></li>
@@ -595,6 +596,10 @@ gtag('config', 'G-ERCRWL13YZ', { 'anonymize_ip': true});
 <td>Load the traces of this shot.</td>
 </tr>
 <tr class="even">
+<td><a href="#pysegy.ShotRecord.read_header_fields">read_header_fields</a></td>
+<td>Values of <code>keys</code> for every trace of this shot, as scaled arrays.</td>
+</tr>
+<tr class="odd">
 <td><a href="#pysegy.ShotRecord.read_headers">read_headers</a></td>
 <td>Read only the headers for this shot.</td>
 </tr>
@@ -657,9 +662,60 @@ gtag('config', 'G-ERCRWL13YZ', { 'anonymize_ip': true});
 </table>
 </section>
 </section>
+<section id="pysegy.ShotRecord.read_header_fields" class="level3">
+<h3 class="anchored" data-anchor-id="pysegy.ShotRecord.read_header_fields">read_header_fields</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>read_header_fields(keys)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Values of <code>keys</code> for every trace of this shot, as scaled arrays.</p>
+<p>The array form of :meth:<code>read_headers</code>, decoding a field at a time across the block the way a scan does, rather than building a header object per trace.</p>
+<section id="parameters-1" class="level4 doc-section doc-section-parameters">
+<h4 class="doc-section doc-section-parameters anchored" data-anchor-id="parameters-1">Parameters</h4>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>keys</td>
+<td>Iterable[str]</td>
+<td>Header words to return.</td>
+<td><em>required</em></td>
+</tr>
+</tbody>
+</table>
+</section>
+<section id="returns-1" class="level4 doc-section doc-section-returns">
+<h4 class="doc-section doc-section-returns anchored" data-anchor-id="returns-1">Returns</h4>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 11%">
+<col style="width: 11%">
+<col style="width: 76%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td></td>
+<td>dict</td>
+<td><code>{key: ndarray}</code>, one scaled float array per key.</td>
+</tr>
+</tbody>
+</table>
+</section>
+</section>
 <section id="pysegy.ShotRecord.read_headers" class="level3">
 <h3 class="anchored" data-anchor-id="pysegy.ShotRecord.read_headers">read_headers</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>read_headers(keys<span class="op">=</span><span class="va">None</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>read_headers(keys<span class="op">=</span><span class="va">None</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Read only the headers for this shot.</p>
 
 
