@@ -19,8 +19,11 @@ from pysegy.viewer.display import (
 from pysegy.viewer.services import (
     DEFAULT_HEADER_FIELDS,
     dataset_summary,
+    file_header_info,
+    gather_summary_values,
     load_gather,
     load_header_table,
+    receiver_attribute,
     scan_local_dataset,
     scan_local_dataset_cached,
     source_geometry,
@@ -92,33 +95,80 @@ record_index = st.number_input(
 )
 record = scan[int(record_index)]
 
-geometry_tab, gather_tab, headers_tab = st.tabs(
-    ["Geometry", "Gather", "Trace headers"]
+overview_tab, geometry_tab, gather_tab, headers_tab = st.tabs(
+    ["File headers", "Geometry", "Gather", "Trace headers"]
 )
+
+with overview_tab:
+    header_info = file_header_info(scan)
+    st.subheader("Binary file header")
+    binary_frame = pd.DataFrame(
+        header_info.binary.items(), columns=["Field", "Value"]
+    )
+    st.dataframe(binary_frame, width="stretch", hide_index=True)
+    st.subheader("Textual file header")
+    st.code(header_info.textual, language=None)
+    unique_paths = list(dict.fromkeys(scan.paths))
+    st.caption(
+        f"This combined scan contains {len(unique_paths):,} file(s). "
+        "The displayed file header is the header retained by the scan."
+    )
 
 with geometry_tab:
     geometry = source_geometry(scan)
     frame = pd.DataFrame(geometry, columns=["x", "y", "depth"])
     frame["record"] = range(len(frame))
     frame["traces"] = scan.counts
+    gather_color_label = st.selectbox(
+        "Color gather locations by",
+        ["Gather depth", "Trace count", "Source water depth", "Group water depth"],
+    )
+    gather_colors = {
+        "Gather depth": frame["depth"],
+        "Trace count": frame["traces"],
+        "Source water depth": gather_summary_values(scan, "SourceWaterDepth"),
+        "Group water depth": gather_summary_values(scan, "GroupWaterDepth"),
+    }
+    frame["color"] = gather_colors[gather_color_label]
     figure = px.scatter(
         frame,
         x="x",
         y="y",
-        color="depth",
+        color="color",
         hover_data=["record", "traces"],
         title="Gather locations",
+        labels={"color": gather_color_label},
     )
     receivers = record.rec_coordinates
     receiver_step = max(1, int(np.ceil(len(receivers) / 5000)))
     receivers = receivers[::receiver_step]
+    receiver_color_label = st.selectbox(
+        "Color selected receivers by",
+        ["Receiver depth", "Source water depth", "Group water depth"],
+    )
+    if receiver_color_label == "Receiver depth":
+        receiver_colors = receivers[:, 2]
+    else:
+        receiver_field = {
+            "Source water depth": "SourceWaterDepth",
+            "Group water depth": "GroupWaterDepth",
+        }[receiver_color_label]
+        receiver_colors = receiver_attribute(
+            scan, int(record_index), receiver_field
+        )[::receiver_step]
     figure.add_trace(
         go.Scattergl(
             x=receivers[:, 0],
             y=receivers[:, 1],
             mode="markers",
             name="Selected gather receivers",
-            marker={"size": 5, "color": "#ef553b"},
+            marker={
+                "size": 6,
+                "color": receiver_colors,
+                "colorscale": "Viridis",
+                "showscale": True,
+                "colorbar": {"title": receiver_color_label, "x": 1.15},
+            },
             customdata=receivers[:, 2],
             hovertemplate=(
                 "x=%{x}<br>y=%{y}<br>depth=%{customdata}<extra></extra>"
@@ -129,6 +179,31 @@ with geometry_tab:
     st.plotly_chart(figure, width="stretch")
     if not geometry.size or not geometry[:, :2].any():
         st.warning("No non-zero source or receiver coordinates were detected.")
+
+    st.subheader("Water-depth profile")
+    water_field = st.selectbox(
+        "Water-depth field",
+        ["SourceWaterDepth", "GroupWaterDepth"],
+    )
+    water_depth = receiver_attribute(scan, int(record_index), water_field)
+    profile = pd.DataFrame({
+        "Receiver X": record.rec_coordinates[:, 0],
+        "Water depth": water_depth,
+        "Trace": np.arange(record.ntraces),
+    })
+    profile_figure = px.scatter(
+        profile,
+        x="Receiver X",
+        y="Water depth",
+        color="Water depth",
+        hover_data=["Trace"],
+        title=f"Selected gather — {water_field}",
+        color_continuous_scale="Blues",
+    )
+    profile_figure.update_yaxes(autorange="reversed")
+    st.plotly_chart(profile_figure, width="stretch")
+    if not np.any(water_depth):
+        st.info(f"The selected gather contains no non-zero {water_field} values.")
 
 with gather_tab:
     control_a, control_b = st.columns(2)

@@ -10,6 +10,8 @@ from platformdirs import user_cache_path
 
 from ..scan import SegyScan, load_scan, save_scan
 
+CACHE_SCHEMA_VERSION = 2
+
 
 def default_cache_dir() -> Path:
     """Return the platform-appropriate viewer cache directory."""
@@ -28,6 +30,7 @@ def dataset_fingerprint(
     source = Path(path).expanduser().resolve()
     files = sorted(source.glob(pattern or "*.segy")) if source.is_dir() else [source]
     payload = {
+        "schema": CACHE_SCHEMA_VERSION,
         "path": str(source),
         "pattern": pattern,
         "by_receiver": by_receiver,

@@ -50,7 +50,10 @@ the platform's user cache directory and can be cleared from the sidebar. The
 trace-header view provides a searchable table, histogram, and CSV download for
 selected fields. Gather controls include image and wiggle displays, trace or
 receiver-coordinate axes, amplitude clipping, time gain, polarity, and color
-scale selection.
+scale selection. The file-header tab exposes the decoded 3200-byte textual
+header and every binary-header field. Geometry views can color gathers and
+receivers by source or group water depth, with a dedicated water-depth profile
+for the selected gather.
 
 ## Testing
 

@@ -4,9 +4,13 @@ import numpy as np
 import pytest
 
 from pysegy.viewer.services import (
+    _decode_textual_header,
     dataset_summary,
+    file_header_info,
+    gather_summary_values,
     load_gather,
     load_header_table,
+    receiver_attribute,
     scan_local_dataset,
     scan_local_dataset_cached,
     source_geometry,
@@ -37,6 +41,30 @@ def test_scan_and_summarize_dataset(scan):
     assert summary.samples_per_trace == 751
     assert summary.sample_interval_us == 4000
     assert source_geometry(scan).shape == (20, 3)
+
+
+def test_file_header_information(scan):
+    info = file_header_info(scan)
+    assert len(info.textual.splitlines()) == 40
+    assert info.binary["ns"] == 751
+    assert info.binary["dt"] == 4000
+
+
+def test_textual_header_decodes_ebcdic():
+    cards = "".join(f"C{line:2d} EBCDIC HEADER".ljust(80) for line in range(1, 41))
+    decoded = _decode_textual_header(cards.encode("cp500"))
+    assert decoded.splitlines()[0].startswith("C 1 EBCDIC HEADER")
+    assert len(decoded.splitlines()) == 40
+
+
+def test_water_depth_geometry_values(scan):
+    source_depth = gather_summary_values(scan, "SourceWaterDepth")
+    group_depth = receiver_attribute(scan, 0, "GroupWaterDepth")
+    assert source_depth.shape == (len(scan),)
+    assert group_depth.shape == (scan[0].ntraces,)
+    assert np.all(np.isfinite(source_depth))
+    with pytest.raises(ValueError, match="Unknown trace header"):
+        gather_summary_values(scan, "MissingWaterDepth")
 
 
 def test_load_gather_is_bounded(scan):

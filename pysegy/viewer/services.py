@@ -21,6 +21,7 @@ DEFAULT_HEADER_FIELDS = (
     "GroupY",
     "Offset",
 )
+WATER_DEPTH_FIELDS = ("SourceWaterDepth", "GroupWaterDepth")
 
 
 @dataclass(frozen=True)
@@ -52,6 +53,42 @@ class HeaderTable:
     columns: Dict[str, np.ndarray]
 
 
+@dataclass(frozen=True)
+class FileHeaderInfo:
+    """Display-ready textual and binary SEG-Y file headers."""
+
+    textual: str
+    binary: Dict[str, int]
+
+
+def _decode_textual_header(raw: bytes) -> str:
+    """Decode an ASCII or EBCDIC textual header into its 40 card lines."""
+
+    candidates = []
+    for encoding in ("ascii", "cp500"):
+        decoded = raw.decode(encoding, errors="replace")
+        score = sum(
+            char != "\ufffd" and (char.isprintable() or char in "\r\n\t")
+            for char in decoded
+        )
+        candidates.append((score, decoded))
+    decoded = max(candidates, key=lambda candidate: candidate[0])[1]
+    return "\n".join(
+        decoded[index:index + 80].rstrip()
+        for index in range(0, 3200, 80)
+    )
+
+
+def file_header_info(scan: SegyScan) -> FileHeaderInfo:
+    """Return decoded textual and binary headers for a scanned dataset."""
+
+    header = scan.fileheader
+    return FileHeaderInfo(
+        textual=_decode_textual_header(header.th),
+        binary={name: int(value) for name, value in header.bfh.values.items()},
+    )
+
+
 def scan_local_dataset(
     path: str,
     *,
@@ -70,6 +107,7 @@ def scan_local_dataset(
     return segy_scan(
         clean_path,
         file_key=pattern,
+        keys=WATER_DEPTH_FIELDS,
         by_receiver=by_receiver,
         threads=threads,
     )
@@ -129,6 +167,28 @@ def source_geometry(scan: SegyScan) -> np.ndarray:
     if not scan.records:
         return np.empty((0, 3), dtype=np.float64)
     return np.asarray(scan.shots, dtype=np.float64)
+
+
+def gather_summary_values(scan: SegyScan, field: str) -> np.ndarray:
+    """Return the midpoint of a summarized header range for every gather."""
+
+    if field not in TH_FIELDS:
+        raise ValueError(f"Unknown trace header field: {field}")
+    values = []
+    for record in scan.records:
+        limits = record.summary.get(field)
+        values.append(np.nan if limits is None else sum(limits) / 2.0)
+    return np.asarray(values, dtype=np.float64)
+
+
+def receiver_attribute(scan: SegyScan, record_index: int, field: str) -> np.ndarray:
+    """Return a scaled trace-header field for the selected gather."""
+
+    if not 0 <= record_index < len(scan):
+        raise IndexError(f"Record index {record_index} is out of range")
+    if field not in TH_FIELDS:
+        raise ValueError(f"Unknown trace header field: {field}")
+    return scan[record_index].read_header_fields([field])[field]
 
 
 def load_header_table(
