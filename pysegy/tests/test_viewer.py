@@ -17,6 +17,10 @@ from pysegy.viewer.services import (
 )
 from pysegy.viewer.cache import clear_cache, dataset_fingerprint, load_cached_scan
 from pysegy.viewer.display import (
+    PROMAX_COLORSCALE,
+    RTM_COLORSCALE,
+    SEISMIC_COLORSCALE,
+    anchored_colorscale,
     amplitude_limit,
     horizontal_axis,
     plotly_colorscale,
@@ -56,6 +60,12 @@ def test_textual_header_decodes_ebcdic():
     decoded = _decode_textual_header(cards.encode("cp500"))
     assert decoded.splitlines()[0].startswith("C 1 EBCDIC HEADER")
     assert len(decoded.splitlines()) == 40
+
+
+def test_unreadable_textual_header_is_skipped():
+    raw = bytes(range(256)) * 12 + bytes(128)
+    assert _decode_textual_header(raw) is None
+    assert _decode_textual_header(b"short") is None
 
 
 def test_water_depth_geometry_values(scan):
@@ -119,6 +129,21 @@ def test_plotly_colorscale_samples_rgba_colormap():
     ]
     with pytest.raises(ValueError, match="at least two"):
         plotly_colorscale(grayscale, samples=1)
+
+
+def test_seismic_color_scales_are_complete_and_saturate_extremes():
+    for scale in (SEISMIC_COLORSCALE, RTM_COLORSCALE, PROMAX_COLORSCALE):
+        assert scale[0][0] == 0.0
+        assert scale[-1][0] == 1.0
+        assert scale[0][1] == scale[1][1]
+
+    assert SEISMIC_COLORSCALE[4][0] == 0.5
+    with pytest.raises(ValueError, match="span zero to one"):
+        anchored_colorscale([(0.1, "black"), (1.0, "white")])
+    with pytest.raises(ValueError, match="strictly increasing"):
+        anchored_colorscale([
+            (0.0, "black"), (0.0, "gray"), (1.0, "white")
+        ])
 
 
 def test_horizontal_axes_and_wiggle_limit(scan):

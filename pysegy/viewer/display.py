@@ -40,6 +40,40 @@ def plotly_colorscale(colormap, samples: int = 17) -> list[list[object]]:
     return result
 
 
+def anchored_colorscale(stops: list[tuple[float, str]]) -> list[list[object]]:
+    """Validate an explicit perceptual color scale for Plotly."""
+
+    if len(stops) < 2:
+        raise ValueError("A color scale requires at least two stops")
+    positions = [float(position) for position, _ in stops]
+    if positions[0] != 0.0 or positions[-1] != 1.0:
+        raise ValueError("Color-scale stops must span zero to one")
+    if any(left >= right for left, right in zip(positions, positions[1:])):
+        raise ValueError("Color-scale stops must be strictly increasing")
+    return [[position, color] for position, (_, color) in zip(positions, stops)]
+
+
+# Repeated end colors reserve range for saturated extrema. This helps strong
+# migrated reflectors remain distinct instead of fading into pastel endpoints.
+SEISMIC_COLORSCALE = anchored_colorscale([
+    (0.00, "#00164d"), (0.08, "#00164d"), (0.22, "#174ea6"),
+    (0.38, "#73a9d8"), (0.50, "#f5f5f2"), (0.62, "#ef8a7b"),
+    (0.78, "#c52832"), (0.92, "#7a0019"), (1.00, "#7a0019"),
+])
+
+RTM_COLORSCALE = anchored_colorscale([
+    (0.00, "#00133f"), (0.14, "#00133f"), (0.30, "#1464b4"),
+    (0.43, "#8ecae6"), (0.50, "#f7f7f3"), (0.57, "#f3a07e"),
+    (0.70, "#d52b2f"), (0.86, "#780018"), (1.00, "#780018"),
+])
+
+PROMAX_COLORSCALE = anchored_colorscale([
+    (0.00, "#050505"), (0.12, "#050505"), (0.34, "#5b4638"),
+    (0.50, "#f1eee8"), (0.68, "#f6a33b"), (0.88, "#d84a05"),
+    (1.00, "#8d1f00"),
+])
+
+
 def scaled_amplitudes(
     window: GatherWindow,
     *,

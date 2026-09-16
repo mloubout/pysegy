@@ -12,6 +12,9 @@ import streamlit as st
 from pysegy.types import TH_FIELDS
 from pysegy.viewer.cache import clear_cache
 from pysegy.viewer.display import (
+    PROMAX_COLORSCALE,
+    RTM_COLORSCALE,
+    SEISMIC_COLORSCALE,
     amplitude_limit,
     horizontal_axis,
     plotly_colorscale,
@@ -38,12 +41,14 @@ st.caption("Explore local SEG-Y geometry and gathers without uploading your data
 
 SEISMIC_COLOR_SCALES = {
     "Perceptual gray": plotly_colorscale(cc.cm.CET_L1),
-    "Cool–warm": plotly_colorscale(cc.cm.CET_D1),
-    "Blue–yellow–red": plotly_colorscale(cc.cm.CET_D4),
+    "Seismic": SEISMIC_COLORSCALE,
+    "Purple–orange (Colorcet)": plotly_colorscale(cc.cm.CET_D8),
+    "RTM saturated": RTM_COLORSCALE,
+    "ProMAX orange–black": PROMAX_COLORSCALE,
 }
 WATER_DEPTH_COLOR_SCALE = plotly_colorscale(cc.cm.bgy)
 TRACE_COUNT_COLOR_SCALE = plotly_colorscale(cc.cm.fire)
-SIGNED_DEPTH_COLOR_SCALE = SEISMIC_COLOR_SCALES["Cool–warm"]
+SIGNED_DEPTH_COLOR_SCALE = SEISMIC_COLOR_SCALES["Seismic"]
 
 with st.sidebar:
     st.header("Dataset")
@@ -112,13 +117,17 @@ overview_tab, geometry_tab, gather_tab, headers_tab = st.tabs(
 
 with overview_tab:
     header_info = file_header_info(scan)
+    if header_info.textual:
+        st.subheader("Textual file header")
+        with st.container(border=True):
+            st.text(header_info.textual)
+    else:
+        st.info("No readable ASCII or EBCDIC textual file header was found.")
     st.subheader("Binary file header")
     binary_frame = pd.DataFrame(
         header_info.binary.items(), columns=["Field", "Value"]
     )
     st.dataframe(binary_frame, width="stretch", hide_index=True)
-    st.subheader("Textual file header")
-    st.code(header_info.textual, language=None)
     unique_paths = list(dict.fromkeys(scan.paths))
     st.caption(
         f"This combined scan contains {len(unique_paths):,} file(s). "
@@ -251,10 +260,18 @@ with gather_tab:
         "Perceptual color scale", list(SEISMIC_COLOR_SCALES),
         disabled=display_mode == "Wiggle",
     )
-    gain_a, gain_b, gain_c = st.columns(3)
+    gain_a, gain_b, gain_c, size_control = st.columns(4)
     percentile = gain_a.slider("Amplitude percentile", 80, 100, 99)
     time_gain = gain_b.slider("Time gain", 0.0, 3.0, 0.0, 0.25)
     reverse_polarity = gain_c.toggle("Reverse polarity", value=False)
+    plot_height = size_control.slider(
+        "Plot height",
+        min_value=600,
+        max_value=1200,
+        value=850,
+        step=50,
+        help="Increase the vertical canvas for long seismic records.",
+    )
     try:
         window = load_gather(
             scan,
@@ -302,7 +319,13 @@ with gather_tab:
                     ),
                     showlegend=False,
                 ))
-        figure.update_layout(xaxis_title=x_title, yaxis_title="Time [s]")
+        figure.update_layout(
+            autosize=True,
+            height=plot_height,
+            margin={"l": 65, "r": 35, "t": 35, "b": 60},
+            xaxis_title=x_title,
+            yaxis_title="Time [s]",
+        )
         figure.update_yaxes(autorange="reversed")
         st.plotly_chart(figure, width="stretch")
         st.caption(

@@ -57,22 +57,24 @@ class HeaderTable:
 class FileHeaderInfo:
     """Display-ready textual and binary SEG-Y file headers."""
 
-    textual: str
+    textual: Optional[str]
     binary: Dict[str, int]
 
 
-def _decode_textual_header(raw: bytes) -> str:
-    """Decode an ASCII or EBCDIC textual header into its 40 card lines."""
+def _decode_textual_header(raw: bytes) -> Optional[str]:
+    """Decode a plausible ASCII or EBCDIC header, or return ``None``."""
 
     candidates = []
     for encoding in ("ascii", "cp500"):
         decoded = raw.decode(encoding, errors="replace")
-        score = sum(
-            char != "\ufffd" and (char.isprintable() or char in "\r\n\t")
-            for char in decoded
-        )
-        candidates.append((score, decoded))
-    decoded = max(candidates, key=lambda candidate: candidate[0])[1]
+        printable = sum(char.isprintable() for char in decoded)
+        text = sum(char.isalnum() or char in " .,:;_-/()[]" for char in decoded)
+        candidates.append(((printable + text) / (2 * max(1, len(raw))), decoded))
+    score, decoded = max(candidates, key=lambda candidate: candidate[0])
+    if len(raw) != 3200 or score < 0.85:
+        return None
+    if sum(char.isalnum() for char in decoded) < 8:
+        return None
     return "\n".join(
         decoded[index:index + 80].rstrip()
         for index in range(0, 3200, 80)
