@@ -315,7 +315,7 @@ def _merge_records(
             else:
                 summary[k] = (mn, mx)
 
-    return ShotRecord(
+    merged = ShotRecord(
         first.path,
         first.coordinates,
         fh,
@@ -328,6 +328,23 @@ def _merge_records(
         first.dt,
         fs,
     )
+
+    # Carried over rather than dropped, or the merged record reads back from
+    # the file what the scan already decoded.  Each record's columns run in
+    # its own segment order, so they are cut back up per segment and laid out
+    # in the file order the merged segments are in.
+    if all(r._rec_coords is not None for r in records):
+        by_offset: Dict[int, np.ndarray] = {}
+        for rec in records:
+            at = 0
+            for offset, count in rec.segments:
+                by_offset[offset] = rec._rec_coords[at:at + count]
+                at += count
+        merged._rec_coords = np.concatenate(
+            [by_offset[offset] for offset in sorted(by_offset)]
+        )
+
+    return merged
 
 
 def _decode_columns(
