@@ -28,6 +28,14 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["flake8", "flake8-pyproject"]
+viewer = [
+    "pandas>=2",
+    "plotly>=5",
+    "streamlit>=1.32",
+]
+
+[project.scripts]
+pysegy-viewer = "pysegy.viewer.cli:main"
 
 [tool.setuptools_scm]
 fallback_version = "0+untagged"

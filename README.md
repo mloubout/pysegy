@@ -33,6 +33,20 @@ Or to install the latest pypi release
 pip install pysegy
 ```
 
+## Local viewer
+
+Install the optional viewer dependencies and launch the local browser app:
+
+```bash
+pip install "pysegy[viewer]"
+pysegy-viewer /path/to/dataset.segy
+```
+
+The viewer binds to ``127.0.0.1`` by default. Files are read directly from the
+local filesystem and are not uploaded to a remote service. The initial viewer
+shows survey dimensions, gather geometry, and a bounded, automatically
+downsampled seismic image for the selected gather.
+
 ## Testing
 
 Run the unit tests with `pytest`:
