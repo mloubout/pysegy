@@ -17,7 +17,7 @@ from pysegy.viewer.services import (
 )
 from pysegy.viewer.cache import clear_cache, dataset_fingerprint, load_cached_scan
 from pysegy.viewer.display import (
-    PROMAX_COLORSCALE,
+    ORANGE_BLACK_COLORSCALE,
     RTM_COLORSCALE,
     SEISMIC_COLORSCALE,
     anchored_colorscale,
@@ -132,7 +132,7 @@ def test_plotly_colorscale_samples_rgba_colormap():
 
 
 def test_seismic_color_scales_are_complete_and_saturate_extremes():
-    for scale in (SEISMIC_COLORSCALE, RTM_COLORSCALE, PROMAX_COLORSCALE):
+    for scale in (SEISMIC_COLORSCALE, RTM_COLORSCALE, ORANGE_BLACK_COLORSCALE):
         assert scale[0][0] == 0.0
         assert scale[-1][0] == 1.0
         assert scale[0][1] == scale[1][1]

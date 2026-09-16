@@ -12,7 +12,7 @@ import streamlit as st
 from pysegy.types import TH_FIELDS
 from pysegy.viewer.cache import clear_cache
 from pysegy.viewer.display import (
-    PROMAX_COLORSCALE,
+    ORANGE_BLACK_COLORSCALE,
     RTM_COLORSCALE,
     SEISMIC_COLORSCALE,
     amplitude_limit,
@@ -43,7 +43,7 @@ SEISMIC_COLOR_SCALES = {
     "Perceptual gray": plotly_colorscale(cc.cm.CET_L1),
     "Seismic": SEISMIC_COLORSCALE,
     "RTM high contrast": RTM_COLORSCALE,
-    "ProMAX orange–black": PROMAX_COLORSCALE,
+    "Orange–black": ORANGE_BLACK_COLORSCALE,
 }
 WATER_DEPTH_COLOR_SCALE = plotly_colorscale(cc.cm.bgy)
 TRACE_COUNT_COLOR_SCALE = plotly_colorscale(cc.cm.fire)
@@ -100,11 +100,12 @@ cols[4].metric("Sample format", summary.sample_format)
 if st.session_state.get("cache_hit"):
     st.caption("Loaded unchanged scan metadata from the local cache.")
 
+current_record = int(st.session_state.get("record_index", 0))
+st.session_state.record_index = min(max(current_record, 0), len(scan) - 1)
 record_index = st.number_input(
     "Gather index",
     min_value=0,
     max_value=max(0, len(scan) - 1),
-    value=min(st.session_state.get("record_index", 0), len(scan) - 1),
     step=1,
     key="record_index",
 )

@@ -68,7 +68,7 @@ RTM_COLORSCALE = anchored_colorscale([
     (0.92, "#ffd54a"), (1.00, "#ffd54a"),
 ])
 
-PROMAX_COLORSCALE = anchored_colorscale([
+ORANGE_BLACK_COLORSCALE = anchored_colorscale([
     (0.00, "#050505"), (0.12, "#050505"), (0.34, "#5b4638"),
     (0.50, "#f1eee8"), (0.68, "#f6a33b"), (0.88, "#d84a05"),
     (1.00, "#8d1f00"),
