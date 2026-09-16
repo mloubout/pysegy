@@ -60,7 +60,8 @@ The file-header tab places a valid decoded 3200-byte ASCII or EBCDIC textual
 header above every binary-header field and skips it when it is unreadable.
 Geometry views can color gathers and
 receivers by source or group water depth, with a dedicated water-depth profile
-for the selected gather.
+for the selected gather. Click a gather location on the geometry plot to select
+it, or move through the survey with the previous and next gather controls.
 
 ## Testing
 

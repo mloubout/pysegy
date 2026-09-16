@@ -20,6 +20,7 @@ from pysegy.viewer.display import (
     plotly_colorscale,
     prepare_wiggles,
     scaled_amplitudes,
+    selected_geometry_record,
 )
 from pysegy.viewer.services import (
     DEFAULT_HEADER_FIELDS,
@@ -100,14 +101,41 @@ cols[4].metric("Sample format", summary.sample_format)
 if st.session_state.get("cache_hit"):
     st.caption("Loaded unchanged scan metadata from the local cache.")
 
+pending_record = st.session_state.pop("pending_record_index", None)
+if pending_record is not None:
+    st.session_state.record_index = int(pending_record)
 current_record = int(st.session_state.get("record_index", 0))
 st.session_state.record_index = min(max(current_record, 0), len(scan) - 1)
-record_index = st.number_input(
+
+
+def step_record(delta: int) -> None:
+    """Move the shared gather selection from a widget callback."""
+
+    selected = int(st.session_state.get("record_index", 0)) + delta
+    st.session_state.record_index = min(max(selected, 0), len(scan) - 1)
+
+
+previous_col, index_col, next_col = st.columns([1, 2, 1])
+previous_col.button(
+    "← Previous gather",
+    disabled=st.session_state.record_index == 0,
+    on_click=step_record,
+    args=(-1,),
+    width="stretch",
+)
+record_index = index_col.number_input(
     "Gather index",
     min_value=0,
     max_value=max(0, len(scan) - 1),
     step=1,
     key="record_index",
+)
+next_col.button(
+    "Next gather →",
+    disabled=st.session_state.record_index == len(scan) - 1,
+    on_click=step_record,
+    args=(1,),
+    width="stretch",
 )
 record = scan[int(record_index)]
 
@@ -155,6 +183,7 @@ with geometry_tab:
         x="x",
         y="y",
         color="color",
+        custom_data=["record", "traces"],
         hover_data=["record", "traces"],
         title="Gather locations",
         labels={"color": gather_color_label},
@@ -207,8 +236,35 @@ with geometry_tab:
             ),
         )
     )
+    selected_source = geometry[int(record_index)]
+    figure.add_trace(
+        go.Scattergl(
+            x=[selected_source[0]],
+            y=[selected_source[1]],
+            mode="markers",
+            name="Selected gather",
+            marker={
+                "size": 16,
+                "symbol": "circle-open",
+                "color": "#202020",
+                "line": {"width": 3},
+            },
+            hoverinfo="skip",
+            showlegend=False,
+        )
+    )
     figure.update_yaxes(scaleanchor="x", scaleratio=1)
-    st.plotly_chart(figure, width="stretch")
+    geometry_event = st.plotly_chart(
+        figure,
+        width="stretch",
+        key="geometry_selection",
+        on_select="rerun",
+        selection_mode="points",
+    )
+    clicked_record = selected_geometry_record(geometry_event.selection.points)
+    if clicked_record is not None and clicked_record != int(record_index):
+        st.session_state.pending_record_index = clicked_record
+        st.rerun()
     if not geometry.size or not geometry[:, :2].any():
         st.warning("No non-zero source or receiver coordinates were detected.")
 

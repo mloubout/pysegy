@@ -26,6 +26,7 @@ from pysegy.viewer.display import (
     plotly_colorscale,
     prepare_wiggles,
     scaled_amplitudes,
+    selected_geometry_record,
 )
 
 
@@ -191,6 +192,18 @@ def test_horizontal_axes_and_wiggle_limit(scan):
     assert len(wiggles.positions) == wiggles.traces.shape[1]
     with pytest.raises(ValueError, match="Unknown horizontal axis"):
         horizontal_axis(window, "Offset")
+
+
+def test_geometry_selection_uses_only_gather_points():
+    points = [
+        {"curve_number": 0, "customdata": [4, 100]},
+        {"curve_number": 1, "customdata": [999]},
+    ]
+    assert selected_geometry_record(points) == 4
+    assert selected_geometry_record([points[1]]) is None
+    assert selected_geometry_record([
+        {"curve_number": 0, "customdata": ["not-an-index"]}
+    ]) is None
 
 
 def test_load_header_table_is_scaled_and_bounded(scan):

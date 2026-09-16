@@ -22,6 +22,7 @@ from .display import (
     plotly_colorscale,
     prepare_wiggles,
     scaled_amplitudes,
+    selected_geometry_record,
 )
 
 __all__ = [
@@ -40,4 +41,5 @@ __all__ = [
     "plotly_colorscale",
     "prepare_wiggles",
     "scaled_amplitudes",
+    "selected_geometry_record",
 ]

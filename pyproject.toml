@@ -33,7 +33,7 @@ viewer = [
     "pandas>=2",
     "platformdirs>=4",
     "plotly>=5",
-    "streamlit>=1.32",
+    "streamlit>=1.50",
 ]
 
 [project.scripts]

@@ -1,6 +1,7 @@
 """Display transformations shared by viewer presentation layers."""
 
 from dataclasses import dataclass
+from typing import Any, Iterable, Mapping, Optional
 
 import numpy as np
 
@@ -14,6 +15,27 @@ class WiggleData:
     traces: np.ndarray
     positions: np.ndarray
     time_seconds: np.ndarray
+
+
+def selected_geometry_record(
+    points: Iterable[Mapping[str, Any]],
+) -> Optional[int]:
+    """Return the gather index selected from the source-geometry trace.
+
+    Plotly reports selections from every trace in a combined figure. Source
+    gathers are trace zero; receiver points are deliberately ignored.
+    """
+
+    for point in reversed(list(points)):
+        if point.get("curve_number") != 0:
+            continue
+        custom = point.get("customdata")
+        if isinstance(custom, (list, tuple)) and custom:
+            try:
+                return int(custom[0])
+            except (TypeError, ValueError):
+                return None
+    return None
 
 
 def plotly_colorscale(colormap, samples: int = 17) -> list[list[object]]:
