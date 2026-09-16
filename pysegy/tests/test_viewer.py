@@ -19,6 +19,7 @@ from pysegy.viewer.cache import clear_cache, dataset_fingerprint, load_cached_sc
 from pysegy.viewer.display import (
     amplitude_limit,
     horizontal_axis,
+    plotly_colorscale,
     prepare_wiggles,
     scaled_amplitudes,
 )
@@ -104,6 +105,20 @@ def test_amplitude_limit_handles_empty_and_nonfinite_data():
     assert amplitude_limit(np.array([0.0, np.nan, np.inf])) == 1.0
     with pytest.raises(ValueError, match="percentile"):
         amplitude_limit(np.array([1.0]), 0)
+
+
+def test_plotly_colorscale_samples_rgba_colormap():
+    def grayscale(values):
+        return np.column_stack((values, values, values, np.ones_like(values)))
+
+    scale = plotly_colorscale(grayscale, samples=3)
+    assert scale == [
+        [0.0, "rgb(0,0,0)"],
+        [0.5, "rgb(128,128,128)"],
+        [1.0, "rgb(255,255,255)"],
+    ]
+    with pytest.raises(ValueError, match="at least two"):
+        plotly_colorscale(grayscale, samples=1)
 
 
 def test_horizontal_axes_and_wiggle_limit(scan):

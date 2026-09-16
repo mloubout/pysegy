@@ -7,12 +7,14 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from cmocean import cm
 
 from pysegy.types import TH_FIELDS
 from pysegy.viewer.cache import clear_cache
 from pysegy.viewer.display import (
     amplitude_limit,
     horizontal_axis,
+    plotly_colorscale,
     prepare_wiggles,
     scaled_amplitudes,
 )
@@ -33,6 +35,15 @@ from pysegy.viewer.services import (
 st.set_page_config(page_title="pysegy Viewer", layout="wide")
 st.title("pysegy Viewer")
 st.caption("Explore local SEG-Y geometry and gathers without uploading your data.")
+
+SEISMIC_COLOR_SCALES = {
+    "Balance": plotly_colorscale(cm.balance),
+    "Curl": plotly_colorscale(cm.curl),
+    "Delta": plotly_colorscale(cm.delta),
+}
+WATER_DEPTH_COLOR_SCALE = plotly_colorscale(cm.deep)
+TRACE_COUNT_COLOR_SCALE = plotly_colorscale(cm.tempo)
+SIGNED_DEPTH_COLOR_SCALE = SEISMIC_COLOR_SCALES["Balance"]
 
 with st.sidebar:
     st.header("Dataset")
@@ -138,6 +149,18 @@ with geometry_tab:
         hover_data=["record", "traces"],
         title="Gather locations",
         labels={"color": gather_color_label},
+        color_continuous_scale=(
+            TRACE_COUNT_COLOR_SCALE
+            if gather_color_label == "Trace count"
+            else (
+                SIGNED_DEPTH_COLOR_SCALE
+                if gather_color_label == "Gather depth"
+                else WATER_DEPTH_COLOR_SCALE
+            )
+        ),
+        color_continuous_midpoint=(
+            0 if gather_color_label == "Gather depth" else None
+        ),
     )
     receivers = record.rec_coordinates
     receiver_step = max(1, int(np.ceil(len(receivers) / 5000)))
@@ -165,7 +188,7 @@ with geometry_tab:
             marker={
                 "size": 6,
                 "color": receiver_colors,
-                "colorscale": "Viridis",
+                "colorscale": WATER_DEPTH_COLOR_SCALE,
                 "showscale": True,
                 "colorbar": {"title": receiver_color_label, "x": 1.15},
             },
@@ -198,7 +221,7 @@ with geometry_tab:
         color="Water depth",
         hover_data=["Trace"],
         title=f"Selected gather — {water_field}",
-        color_continuous_scale="Blues",
+        color_continuous_scale=WATER_DEPTH_COLOR_SCALE,
     )
     profile_figure.update_yaxes(autorange="reversed")
     st.plotly_chart(profile_figure, width="stretch")
@@ -225,7 +248,7 @@ with gather_tab:
         "Horizontal axis", ["Trace number", "Receiver X"]
     )
     color_scale = display_c.selectbox(
-        "Color scale", ["Greys", "RdBu", "Viridis"],
+        "Perceptual color scale", list(SEISMIC_COLOR_SCALES),
         disabled=display_mode == "Wiggle",
     )
     gain_a, gain_b, gain_c = st.columns(3)
@@ -254,7 +277,7 @@ with gather_tab:
                     z=amplitudes,
                     x=x_values,
                     y=window.time_seconds,
-                    colorscale=color_scale,
+                    colorscale=SEISMIC_COLOR_SCALES[color_scale],
                     zmin=-limit,
                     zmax=limit,
                     colorbar={"title": "Amplitude"},

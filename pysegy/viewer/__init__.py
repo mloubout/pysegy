@@ -16,7 +16,13 @@ from .services import (
     load_header_table,
     receiver_attribute,
 )
-from .display import amplitude_limit, horizontal_axis, prepare_wiggles, scaled_amplitudes
+from .display import (
+    amplitude_limit,
+    horizontal_axis,
+    plotly_colorscale,
+    prepare_wiggles,
+    scaled_amplitudes,
+)
 
 __all__ = [
     "DatasetSummary",
@@ -31,6 +37,7 @@ __all__ = [
     "receiver_attribute",
     "amplitude_limit",
     "horizontal_axis",
+    "plotly_colorscale",
     "prepare_wiggles",
     "scaled_amplitudes",
 ]

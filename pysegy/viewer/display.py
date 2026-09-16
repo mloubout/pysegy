@@ -16,6 +16,30 @@ class WiggleData:
     time_seconds: np.ndarray
 
 
+def plotly_colorscale(colormap, samples: int = 17) -> list[list[object]]:
+    """Sample a Matplotlib-compatible colormap for use by Plotly.
+
+    Scientific colormaps such as those from :mod:`cmocean` are distributed as
+    Matplotlib colormap objects. Plotly expects explicit normalized positions
+    and CSS colors instead.
+    """
+
+    if samples < 2:
+        raise ValueError("A color scale requires at least two samples")
+    positions = np.linspace(0.0, 1.0, samples)
+    colors = np.asarray(colormap(positions))
+    if colors.shape != (samples, 4):
+        raise ValueError("Colormap must return RGBA values")
+    result = []
+    for position, color in zip(positions, colors):
+        red, green, blue = np.rint(color[:3] * 255).astype(int)
+        result.append([
+            float(position),
+            f"rgb({red},{green},{blue})",
+        ])
+    return result
+
+
 def scaled_amplitudes(
     window: GatherWindow,
     *,
