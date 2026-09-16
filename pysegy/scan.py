@@ -20,7 +20,7 @@ from .types import (
     SeisBlock,
     TH_BYTE2SAMPLE,
 )
-from .utils import _check_scale, detect_depth_keys, get_header, open_file
+from .utils import _check_scale, detect_depth_keys, open_file
 
 # Trace sorting code (binary file header) for horizontally stacked data, i.e.
 # data that holds no gathers, such as a stack or a property model
