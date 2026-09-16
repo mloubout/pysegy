@@ -135,17 +135,33 @@ def test_seismic_color_scales_are_complete_and_saturate_extremes():
     for scale in (SEISMIC_COLORSCALE, RTM_COLORSCALE, ORANGE_BLACK_COLORSCALE):
         assert scale[0][0] == 0.0
         assert scale[-1][0] == 1.0
-        assert scale[0][1] == scale[1][1]
+
+    assert SEISMIC_COLORSCALE[0][1] == SEISMIC_COLORSCALE[1][1]
+    assert ORANGE_BLACK_COLORSCALE[0][1] == ORANGE_BLACK_COLORSCALE[1][1]
 
     assert SEISMIC_COLORSCALE[4][0] == 0.5
-    assert [0.5, "#ffffff"] in RTM_COLORSCALE
-    assert [color for position, color in RTM_COLORSCALE if 0.49 <= position <= 0.51] == [
-        "#ffffff", "#ffffff", "#ffffff"
-    ]
+    assert [0.5, "#f7f7f5"] in RTM_COLORSCALE
     assert all(color != "#050505" for _, color in RTM_COLORSCALE)
     assert RTM_COLORSCALE != SEISMIC_COLORSCALE
     rtm_positions = np.asarray([stop[0] for stop in RTM_COLORSCALE])
     assert np.allclose(rtm_positions, 1.0 - rtm_positions[::-1])
+    colors = [color for _, color in RTM_COLORSCALE]
+    assert colors[3:5] == ["#849295", "#c5c7c6"]
+    assert colors[6:8] == ["#c8c6c3", "#9a887e"]
+    luminances = []
+    for color in colors:
+        srgb = np.asarray([
+            int(color[index:index + 2], 16) / 255.0
+            for index in (1, 3, 5)
+        ])
+        linear = np.where(
+            srgb <= 0.04045,
+            srgb / 12.92,
+            ((srgb + 0.055) / 1.055) ** 2.4,
+        )
+        luminances.append(float(linear @ [0.2126, 0.7152, 0.0722]))
+    assert np.all(np.diff(luminances[:6]) > 0)
+    assert np.all(np.diff(luminances[5:]) < 0)
     with pytest.raises(ValueError, match="span zero to one"):
         anchored_colorscale([(0.1, "black"), (1.0, "white")])
     with pytest.raises(ValueError, match="strictly increasing"):
