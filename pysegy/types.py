@@ -34,6 +34,14 @@ FH_BYTE2SAMPLE: Dict[str, int] = {
     "MeasurementSystem": 3254,
     "ImpulseSignalPolarity": 3256,
     "VibratoryPolarityCode": 3258,
+    # Unassigned by the standard: rev 2 defines the binary header through
+    # byte 3296 and leaves 3297 onwards free.  A scalar for the sample
+    # interval, which the format itself gives only a two-byte word: a depth
+    # model coarser than 65.535 m has no other way to say its step.  Read
+    # like the coordinate scalars -- positive multiplies, negative divides,
+    # zero means the interval stands as written -- so a file that does not
+    # set it, which is every file written before this, is unaffected.
+    "SampleIntervalScalar": 3298,
     "SegyFormatRevisionNumber": 3500,
     "FixedLengthTraceFlag": 3502,
     "NumberOfExtTextualHeaders": 3504,
