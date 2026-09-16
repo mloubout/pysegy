@@ -140,6 +140,8 @@ def test_seismic_color_scales_are_complete_and_saturate_extremes():
     assert SEISMIC_COLORSCALE[4][0] == 0.5
     assert [0.5, "#050505"] in RTM_COLORSCALE
     assert RTM_COLORSCALE != SEISMIC_COLORSCALE
+    rtm_positions = np.asarray([stop[0] for stop in RTM_COLORSCALE])
+    assert np.allclose(rtm_positions, 1.0 - rtm_positions[::-1])
     with pytest.raises(ValueError, match="span zero to one"):
         anchored_colorscale([(0.1, "black"), (1.0, "white")])
     with pytest.raises(ValueError, match="strictly increasing"):

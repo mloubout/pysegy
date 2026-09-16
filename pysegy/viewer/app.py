@@ -42,7 +42,7 @@ st.caption("Explore local SEG-Y geometry and gathers without uploading your data
 SEISMIC_COLOR_SCALES = {
     "Perceptual gray": plotly_colorscale(cc.cm.CET_L1),
     "Seismic": SEISMIC_COLORSCALE,
-    "RTM high contrast": RTM_COLORSCALE,
+    "RTM": RTM_COLORSCALE,
     "Orange–black": ORANGE_BLACK_COLORSCALE,
 }
 WATER_DEPTH_COLOR_SCALE = plotly_colorscale(cc.cm.bgy)
