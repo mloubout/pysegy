@@ -65,8 +65,9 @@ SEISMIC_COLORSCALE = anchored_colorscale([
 # neutral zero, with cool negative amplitudes and warm positive amplitudes.
 RTM_COLORSCALE = anchored_colorscale([
     (0.00, "#2b176d"), (0.08, "#2b176d"), (0.20, "#2447ad"),
-    (0.34, "#1596c0"), (0.46, "#b8e3df"), (0.50, "#f7f5ef"),
-    (0.54, "#f2dfaf"), (0.66, "#efaa38"), (0.80, "#d85624"),
+    (0.34, "#1596c0"), (0.46, "#d6eeeb"), (0.49, "#ffffff"),
+    (0.50, "#ffffff"), (0.51, "#ffffff"), (0.54, "#f7e7c4"),
+    (0.66, "#efaa38"), (0.80, "#d85624"),
     (0.92, "#8c1d3c"), (1.00, "#8c1d3c"),
 ])
 
