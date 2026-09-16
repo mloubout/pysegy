@@ -761,3 +761,178 @@ def test_rec_coordinates_apply_the_coordinate_scalar(tmp_path):
     )).astype(np.float32)
 
     np.testing.assert_allclose(record.rec_coordinates, expected)
+
+
+def test_scan_keeps_the_receiver_coordinates(tmp_path):
+    """The scan decodes them already; it must not throw them away.
+
+    Reading them back from the file means transferring the samples they are
+    interleaved with, which on a field survey is ~125 MB of file per shot to
+    obtain ~150 KB of coordinates.
+    """
+    path, _ = _coords_fixture(tmp_path, ntraces=12)
+    scan = seg.segy_scan(str(path))
+    for record in scan.records:
+        assert record._rec_coords is not None
+
+
+def test_rec_coordinates_survive_the_file_going_away(tmp_path):
+    """Nothing is read back: the scan already holds them.
+
+    Deleting the data is the honest way to ask whether the file is touched.
+    """
+    path, ntraces = _coords_fixture(tmp_path, ntraces=12)
+    scan = seg.segy_scan(str(path))
+    expected = [np.array(rec.rec_coordinates) for rec in scan.records]
+    os.remove(path)
+    for rec, want in zip(scan.records, expected):
+        np.testing.assert_allclose(rec.rec_coordinates, want)
+    assert sum(len(v) for v in expected) == ntraces
+
+
+def test_scanned_coordinates_match_the_headers(tmp_path):
+    """What the scan kept must equal what reading the headers would give."""
+    from pysegy.utils import get_header
+
+    path, _ = _coords_fixture(tmp_path, ntraces=12)
+    scan = seg.segy_scan(str(path))
+    for record in scan.records:
+        hdrs = record.read_headers(
+            keys=["GroupX", "GroupY", record.rec_depth_key,
+                  "RecSourceScalar", "ElevationScalar"]
+        )
+        expected = np.column_stack((
+            get_header(hdrs, "GroupX"),
+            get_header(hdrs, "GroupY"),
+            get_header(hdrs, record.rec_depth_key),
+        )).astype(np.float32)
+        np.testing.assert_allclose(record.rec_coordinates, expected)
+
+
+def test_scanned_coordinates_span_blocks_in_order(tmp_path):
+    """A shot read over several blocks must come back whole and in order.
+
+    The rows have to line up with the traces they came from, or every
+    receiver of a large shot is attributed to the wrong position.
+    """
+    from pysegy.utils import get_header
+
+    # One gather: a scalar that varies per trace would scale the source
+    # position differently per trace and split them into separate records.
+    ns, ntraces = 3, 40
+    fh = FileHeader()
+    fh.bfh.ns = ns
+    fh.bfh.DataSampleFormat = 5
+    headers = []
+    for index in range(ntraces):
+        header = BinaryTraceHeader()
+        header.ns = ns
+        header.SourceX, header.SourceY = 1000, 2000
+        header.GroupX, header.GroupY = 3000 + index, -4000 - index
+        header.GroupWaterDepth = 10 + index
+        header.RecSourceScalar = -100
+        header.ElevationScalar = -100
+        headers.append(header)
+    path = tmp_path / "span.segy"
+    seg.segy_write(str(path), SeisBlock(
+        fh, headers,
+        np.arange(ns * ntraces, dtype=np.float32).reshape(ns, ntraces),
+    ))
+
+    scan = seg.segy_scan(str(path), chunk=3)
+    record = scan.records[0]
+    assert record.ntraces == ntraces
+
+    hdrs = record.read_headers(
+        keys=["GroupX", "RecSourceScalar", "ElevationScalar"]
+    )
+    np.testing.assert_allclose(
+        record.rec_coordinates[:, 0], get_header(hdrs, "GroupX")
+    )
+
+
+def test_rec_coordinates_fall_back_to_the_file(tmp_path):
+    """A record without the columns reads them, as it always did.
+
+    A scan pickled before the columns were kept unpickles with none, and
+    that is what serves it.
+    """
+    from pysegy.utils import get_header
+
+    path, _ = _coords_fixture(tmp_path, ntraces=12)
+    scan = seg.segy_scan(str(path))
+    record = scan.records[0]
+    expected = np.array(record.rec_coordinates)
+
+    record._rec_coords = None
+    np.testing.assert_allclose(record.rec_coordinates, expected)
+
+    hdrs = record.read_headers(
+        keys=["GroupX", "RecSourceScalar", "ElevationScalar"]
+    )
+    np.testing.assert_allclose(
+        record.rec_coordinates[:, 0], get_header(hdrs, "GroupX")
+    )
+
+
+def test_scan_read_headers_returns_the_shot_headers(tmp_path):
+    """Headers by shot index, for callers that want the headers themselves."""
+    path, ntraces = _coords_fixture(tmp_path, ntraces=12)
+    scan = seg.segy_scan(str(path))
+    keys = ["GroupX", "GroupY"]
+    hdrs = scan.read_headers(0, keys=keys)
+    record = scan.records[0]
+    assert len(hdrs) == record.ntraces
+    # The same headers the record itself would read, by shot index.
+    assert ([h.GroupX for h in hdrs]
+            == [h.GroupX for h in record.read_headers(keys=keys)])
+
+
+def test_receiver_gathers_keep_the_source_coordinates(tmp_path):
+    """Gathering by receiver flips which coordinates are the traces'.
+
+    The scan has to keep the pair it does not group on, so what it stores
+    must match what rec_coordinates would have read either way round.
+    """
+    from pysegy.utils import get_header
+
+    # Receivers that repeat, so gathering by receiver yields real gathers
+    # rather than one record per trace.
+    ns, ntraces = 3, 12
+    fh = FileHeader()
+    fh.bfh.ns = ns
+    fh.bfh.DataSampleFormat = 5
+    headers = []
+    for index in range(ntraces):
+        header = BinaryTraceHeader()
+        header.ns = ns
+        header.SourceX, header.SourceY = 1000 + index, 2000 + index
+        header.GroupX, header.GroupY = 3000 + (index // 4), 4000
+        header.GroupWaterDepth = 10 + index
+        header.RecSourceScalar = -100
+        header.ElevationScalar = -100
+        headers.append(header)
+    path = tmp_path / "gathers.segy"
+    seg.segy_write(str(path), SeisBlock(
+        fh, headers,
+        np.arange(ns * ntraces, dtype=np.float32).reshape(ns, ntraces),
+    ))
+    scan = seg.segy_scan(str(path), by_receiver=True)
+    for record in scan.records:
+        assert record.by_receiver
+        assert record._rec_coords is not None
+        hdrs = record.read_headers(
+            keys=["SourceX", "SourceY", record.depth_key,
+                  "RecSourceScalar", "ElevationScalar"]
+        )
+        expected = np.column_stack((
+            get_header(hdrs, "SourceX"),
+            get_header(hdrs, "SourceY"),
+            get_header(hdrs, record.depth_key),
+        )).astype(np.float32)
+        np.testing.assert_allclose(record.rec_coordinates, expected)
+
+        # And the same read back from the file, which is what serves a scan
+        # pickled before the columns were kept.
+        record._rec_coords = None
+        np.testing.assert_allclose(record.rec_coordinates, expected)

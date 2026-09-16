@@ -315,7 +315,7 @@ def _merge_records(
             else:
                 summary[k] = (mn, mx)
 
-    return ShotRecord(
+    merged = ShotRecord(
         first.path,
         first.coordinates,
         fh,
@@ -328,6 +328,23 @@ def _merge_records(
         first.dt,
         fs,
     )
+
+    # Carried over rather than dropped, or the merged record reads back from
+    # the file what the scan already decoded.  Each record's columns run in
+    # its own segment order, so they are cut back up per segment and laid out
+    # in the file order the merged segments are in.
+    if all(r._rec_coords is not None for r in records):
+        by_offset: Dict[int, np.ndarray] = {}
+        for rec in records:
+            at = 0
+            for offset, count in rec.segments:
+                by_offset[offset] = rec._rec_coords[at:at + count]
+                at += count
+        merged._rec_coords = np.concatenate(
+            [by_offset[offset] for offset in sorted(by_offset)]
+        )
+
+    return merged
 
 
 def _decode_columns(
@@ -741,9 +758,10 @@ def _scan_range(
     trace_keys: List[str],
     summary_keys: List[str],
     coord_keys: Tuple[str, str, str],
+    rec_keys: Tuple[str, str, str],
     chunk: int,
     fs=None,
-) -> Tuple[List[Tuple[tuple, int, int]], Dict[tuple, dict]]:
+) -> Tuple[List[Tuple[tuple, int, int, np.ndarray]], Dict[tuple, dict]]:
     """
     Scan ``count`` traces of ``path`` starting at trace ``start``.
 
@@ -763,6 +781,9 @@ def _scan_range(
         Header fields to summarise.
     coord_keys : tuple of str
         Names of the two coordinates and the depth grouping traces into shots.
+    rec_keys : tuple of str
+        Names of the receiver coordinates, kept per trace so that reading
+        them later does not mean reading the file again.
     chunk : int
         Number of traces to read per block.
     fs : filesystem-like object, optional
@@ -772,12 +793,13 @@ def _scan_range(
     -------
     tuple
         ``(runs, summaries)`` where ``runs`` lists ``(coordinates, offset,
-        ntraces)`` for every stretch of traces sharing a position, in file
-        order, and ``summaries`` maps coordinates to their header ranges.
+        ntraces, receiver coordinates)`` for every stretch of traces sharing
+        a position, in file order, and ``summaries`` maps coordinates to
+        their header ranges.
     """
     trace_size = 240 + ns * 4
     max_bytes = _read_budget(path, fs)
-    runs: List[Tuple[tuple, int, int]] = []
+    runs: List[Tuple[tuple, int, int, np.ndarray]] = []
     summaries: Dict[tuple, dict] = {}
 
     with open_file(path, "rb", fs) as f:
@@ -789,6 +811,13 @@ def _scan_range(
                 _scaled_column(columns, k).astype(np.float32) for k in coord_keys
             ]
             summarised = {k: _scaled_column(columns, k) for k in summary_keys}
+            # Decoded from this block either way: the receiver coordinates
+            # are among `trace_keys`, and dropping them here is what made
+            # `rec_coordinates` read the file a second time, transferring
+            # the samples they are interleaved with to get at them.
+            rec_coords = np.column_stack(
+                [_scaled_column(columns, k) for k in rec_keys]
+            ).astype(np.float32)
 
             # Traces sharing a position belong to one segment, so only the
             # traces where the position moves have to be looked at
@@ -803,11 +832,17 @@ def _scan_range(
 
             for first, last in zip(starts.tolist(), stops.tolist()):
                 src = (coords[0][first], coords[1][first], coords[2][first])
+                part = rec_coords[first:last]
                 if runs and runs[-1][0] == src:
                     # Same position as the tail of the previous block
-                    runs[-1] = (src, runs[-1][1], runs[-1][2] + last - first)
+                    runs[-1] = (
+                        src, runs[-1][1], runs[-1][2] + last - first,
+                        np.concatenate((runs[-1][3], part)),
+                    )
                 else:
-                    runs.append((src, base + first * trace_size, last - first))
+                    runs.append(
+                        (src, base + first * trace_size, last - first, part)
+                    )
                 if summary_keys:
                     _update_summary(
                         summaries.setdefault(src, {}),
@@ -819,7 +854,9 @@ def _scan_range(
 
 
 def _records_from_runs(
-    scanned: List[Tuple[List[Tuple[tuple, int, int]], Dict[tuple, dict]]],
+    scanned: List[
+        Tuple[List[Tuple[tuple, int, int, np.ndarray]], Dict[tuple, dict]]
+    ],
     path: str,
     fh: FileHeader,
     depth_key: str,
@@ -837,8 +874,9 @@ def _records_from_runs(
     trace_size = 240 + ns * 4
     records: Dict[tuple, ShotRecord] = {}
 
+    parts: Dict[tuple, List[np.ndarray]] = {}
     for runs, summaries in scanned:
-        for src, offset, count in runs:
+        for src, offset, count, rec_coords in runs:
             rec = records.get(src)
             if rec is None:
                 rec = ShotRecord(
@@ -861,6 +899,9 @@ def _records_from_runs(
                 rec.segments[-1] = (last_offset, last_count + count)
             else:
                 rec.segments.append((offset, count))
+            # In file order, which is the order the segments are read in, so
+            # the rows line up with the traces they came from.
+            parts.setdefault(src, []).append(rec_coords)
 
         for src, summary in summaries.items():
             known = records[src].summary
@@ -871,6 +912,13 @@ def _records_from_runs(
                     )
                 else:
                     known[name] = (low, high)
+
+    # Held on the record, so a reader that wants them does not go back to
+    # the file for header words this scan has already decoded.
+    for src, chunks in parts.items():
+        records[src]._rec_coords = (
+            np.concatenate(chunks) if len(chunks) > 1 else chunks[0]
+        )
 
     return records
 
@@ -956,6 +1004,13 @@ def _scan_file(
         coord_keys = ("GroupX", "GroupY", rec_depth_key)
     else:
         coord_keys = ("SourceX", "SourceY", depth_key)
+    # What `ShotRecord.rec_coordinates` asks for: the coordinates of the
+    # traces rather than of the gather, so the opposite pair to the one the
+    # gathering groups on, and the receiver depth either way.
+    rec_keys = (
+        ("SourceX", "SourceY", rec_depth_key) if by_receiver
+        else ("GroupX", "GroupY", rec_depth_key)
+    )
     summary_keys = list(keys or [])
 
     blocks = _split_traces(total, chunk, max(threads, 1))
@@ -964,7 +1019,7 @@ def _scan_file(
         scanned = [
             _scan_range(
                 path, blocks[0][0], blocks[0][1], ns, trace_keys, summary_keys,
-                coord_keys, chunk, fs,
+                coord_keys, rec_keys, chunk, fs,
             )
         ]
     else:
@@ -972,7 +1027,7 @@ def _scan_file(
             futures = [
                 pool.submit(
                     _scan_range, path, start, count, ns, trace_keys,
-                    summary_keys, coord_keys, chunk, fs,
+                    summary_keys, coord_keys, rec_keys, chunk, fs,
                 )
                 for start, count in blocks
             ]
