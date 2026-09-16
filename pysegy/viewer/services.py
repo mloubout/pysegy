@@ -2,11 +2,25 @@
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Iterable, Optional
 
 import numpy as np
 
 from ..scan import SegyScan, segy_scan
+from ..types import TH_FIELDS
+from .cache import cache_path, load_cached_scan, store_cached_scan
+
+
+DEFAULT_HEADER_FIELDS = (
+    "TraceNumWithinFile",
+    "FieldRecord",
+    "TraceNumber",
+    "SourceX",
+    "SourceY",
+    "GroupX",
+    "GroupY",
+    "Offset",
+)
 
 
 @dataclass(frozen=True)
@@ -28,6 +42,14 @@ class GatherWindow:
     trace_indices: np.ndarray
     time_seconds: np.ndarray
     receiver_coordinates: np.ndarray
+
+
+@dataclass(frozen=True)
+class HeaderTable:
+    """Selected, scaled trace-header columns for a gather."""
+
+    trace_indices: np.ndarray
+    columns: Dict[str, np.ndarray]
 
 
 def scan_local_dataset(
@@ -53,6 +75,41 @@ def scan_local_dataset(
     )
 
 
+def scan_local_dataset_cached(
+    path: str,
+    *,
+    pattern: Optional[str] = None,
+    by_receiver: bool = False,
+    threads: Optional[int] = None,
+    cache_dir: Optional[Path] = None,
+) -> tuple[SegyScan, bool]:
+    """Scan a local dataset, reusing an unchanged metadata scan when possible."""
+
+    clean_path = str(Path(path).expanduser().resolve())
+    source = Path(clean_path)
+    if not source.exists():
+        raise FileNotFoundError(f"Dataset path does not exist: {clean_path}")
+    if source.is_dir() and not pattern:
+        pattern = "*.segy"
+    location = cache_path(
+        clean_path,
+        pattern=pattern,
+        by_receiver=by_receiver,
+        cache_dir=cache_dir,
+    )
+    cached = load_cached_scan(location)
+    if cached is not None:
+        return cached, True
+    scan = scan_local_dataset(
+        clean_path,
+        pattern=pattern,
+        by_receiver=by_receiver,
+        threads=threads,
+    )
+    store_cached_scan(location, scan)
+    return scan, False
+
+
 def dataset_summary(scan: SegyScan) -> DatasetSummary:
     """Return the key dimensions and encoding details of ``scan``."""
 
@@ -72,6 +129,36 @@ def source_geometry(scan: SegyScan) -> np.ndarray:
     if not scan.records:
         return np.empty((0, 3), dtype=np.float64)
     return np.asarray(scan.shots, dtype=np.float64)
+
+
+def load_header_table(
+    scan: SegyScan,
+    record_index: int,
+    fields: Iterable[str] = DEFAULT_HEADER_FIELDS,
+    *,
+    max_rows: int = 5000,
+) -> HeaderTable:
+    """Read selected header columns with bounded rows for browser display."""
+
+    if not 0 <= record_index < len(scan):
+        raise IndexError(f"Record index {record_index} is out of range")
+    if max_rows < 1:
+        raise ValueError("Header row limit must be positive")
+    selected = list(dict.fromkeys(fields))
+    unknown = sorted(set(selected) - set(TH_FIELDS))
+    if unknown:
+        raise ValueError(f"Unknown trace header field(s): {', '.join(unknown)}")
+    if not selected:
+        return HeaderTable(np.zeros(0, dtype=np.int64), {})
+
+    record = scan[record_index]
+    columns = record.read_header_fields(selected)
+    step = max(1, int(np.ceil(record.ntraces / max_rows)))
+    indices = np.arange(0, record.ntraces, step)
+    return HeaderTable(
+        trace_indices=indices,
+        columns={name: values[::step] for name, values in columns.items()},
+    )
 
 
 def load_gather(

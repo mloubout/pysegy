@@ -45,7 +45,10 @@ pysegy-viewer /path/to/dataset.segy
 The viewer binds to ``127.0.0.1`` by default. Files are read directly from the
 local filesystem and are not uploaded to a remote service. The initial viewer
 shows survey dimensions, gather geometry, and a bounded, automatically
-downsampled seismic image for the selected gather.
+downsampled seismic image for the selected gather. Scan metadata is cached in
+the platform's user cache directory and can be cleared from the sidebar. The
+trace-header view provides a searchable table, histogram, and CSV download for
+selected fields.
 
 ## Testing
 
