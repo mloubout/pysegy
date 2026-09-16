@@ -19,7 +19,7 @@ class WiggleData:
 def plotly_colorscale(colormap, samples: int = 17) -> list[list[object]]:
     """Sample a Matplotlib-compatible colormap for use by Plotly.
 
-    Scientific colormaps such as those from :mod:`cmocean` are distributed as
+    Scientific colormaps such as those from :mod:`colorcet` are distributed as
     Matplotlib colormap objects. Plotly expects explicit normalized positions
     and CSS colors instead.
     """

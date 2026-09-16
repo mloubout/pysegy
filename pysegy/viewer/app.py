@@ -2,12 +2,12 @@
 
 import os
 
+import colorcet as cc
 import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
-from cmocean import cm
 
 from pysegy.types import TH_FIELDS
 from pysegy.viewer.cache import clear_cache
@@ -37,13 +37,13 @@ st.title("pysegy Viewer")
 st.caption("Explore local SEG-Y geometry and gathers without uploading your data.")
 
 SEISMIC_COLOR_SCALES = {
-    "Balance": plotly_colorscale(cm.balance),
-    "Curl": plotly_colorscale(cm.curl),
-    "Delta": plotly_colorscale(cm.delta),
+    "Perceptual gray": plotly_colorscale(cc.cm.CET_L1),
+    "Cool–warm": plotly_colorscale(cc.cm.CET_D1),
+    "Blue–yellow–red": plotly_colorscale(cc.cm.CET_D4),
 }
-WATER_DEPTH_COLOR_SCALE = plotly_colorscale(cm.deep)
-TRACE_COUNT_COLOR_SCALE = plotly_colorscale(cm.tempo)
-SIGNED_DEPTH_COLOR_SCALE = SEISMIC_COLOR_SCALES["Balance"]
+WATER_DEPTH_COLOR_SCALE = plotly_colorscale(cc.cm.bgy)
+TRACE_COUNT_COLOR_SCALE = plotly_colorscale(cc.cm.fire)
+SIGNED_DEPTH_COLOR_SCALE = SEISMIC_COLOR_SCALES["Cool–warm"]
 
 with st.sidebar:
     st.header("Dataset")
