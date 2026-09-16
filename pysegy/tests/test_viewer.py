@@ -146,8 +146,12 @@ def test_seismic_color_scales_are_complete_and_saturate_extremes():
     rtm_positions = np.asarray([stop[0] for stop in RTM_COLORSCALE])
     assert np.allclose(rtm_positions, 1.0 - rtm_positions[::-1])
     colors = [color for _, color in RTM_COLORSCALE]
-    assert colors[3:5] == ["#849295", "#c5c7c6"]
-    assert colors[6:8] == ["#c8c6c3", "#9a887e"]
+    channels = np.asarray([
+        [int(color[index:index + 2], 16) for index in (1, 3, 5)]
+        for color in colors
+    ])
+    assert np.all(np.ptp(channels[2:9], axis=1) <= 32)
+    assert np.all(np.ptp(channels[[0, 1, 9, 10]], axis=1) > 60)
     luminances = []
     for color in colors:
         srgb = np.asarray([

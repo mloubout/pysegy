@@ -51,7 +51,8 @@ trace-header view provides a searchable table, histogram, and CSV download for
 selected fields. Gather controls include image and wiggle displays, trace or
 receiver-coordinate axes, amplitude clipping, time gain, polarity, and color
 scale selection, including Colorcet perceptual gray, a balanced seismic palette,
-a perceptual RTM palette with a broad gray center and saturated extremes, and an
+a perceptual RTM palette that reserves color for the outer 20% of each extreme,
+and an
 orange–black palette. The gather canvas is tall by default and its
 height can be adjusted between 600 and 1200 pixels for different record lengths
 and screens.

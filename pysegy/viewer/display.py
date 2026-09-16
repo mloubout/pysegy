@@ -66,10 +66,10 @@ SEISMIC_COLORSCALE = anchored_colorscale([
 # either endpoint to the light center, so structure remains legible in gray
 # while strong signed reflectors receive clearly different colors.
 RTM_COLORSCALE = anchored_colorscale([
-    (0.00, "#15358a"), (0.10, "#006fa6"), (0.22, "#4c8da7"),
-    (0.34, "#849295"), (0.44, "#c5c7c6"), (0.50, "#f7f7f5"),
-    (0.56, "#c8c6c3"), (0.66, "#9a887e"), (0.78, "#bd7045"),
-    (0.90, "#bd3d2f"), (1.00, "#851c35"),
+    (0.00, "#007c9e"), (0.10, "#168db0"), (0.20, "#75878c"),
+    (0.32, "#969c9d"), (0.42, "#c8c9c8"), (0.50, "#f7f7f5"),
+    (0.58, "#c9c8c7"), (0.68, "#b0aaa7"), (0.80, "#958b86"),
+    (0.90, "#d66a32"), (1.00, "#c92e4e"),
 ])
 
 ORANGE_BLACK_COLORSCALE = anchored_colorscale([
