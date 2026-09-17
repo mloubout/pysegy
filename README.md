@@ -65,13 +65,14 @@ it, or move through the survey with the previous and next gather controls. A
 diagnostics tab checks source coordinates, duplicate and empty gathers, sample
 consistency, and water-depth metadata without reading trace samples.
 
-Gather navigation lives in the sidebar with a searchable gather selector and
-compact first, previous, next, and last controls. Survey-level geometry uses
-only gather-level depth and trace-count fields; receiver attributes remain in a
-separate selected-gather plot. Each view therefore has one unambiguous color
-scale. The geometry tab also shows the source and receiver depth headers selected
-by pysegy, while the trace-header tab plots header values as a trace profile
-instead of a histogram.
+Gather navigation lives in the sidebar and selects only a gather number; its
+coordinates, detected depth header, depth value, and trace count are shown in a
+separate description inside the gather workspace. Survey-level geometry is
+isolated in the Survey tab. All local views—seismic data, receiver geometry, and
+the depth profile—are grouped under the Gather workspace, while trace headers
+have an explicitly gather-scoped tab. Survey geometry uses only gather-level
+depth and trace-count fields, and trace headers are plotted as profiles rather
+than histograms.
 
 ## Testing
 

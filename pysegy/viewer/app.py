@@ -97,6 +97,7 @@ if scan is None:
     st.stop()
 
 summary = dataset_summary(scan)
+st.subheader("Survey summary")
 cols = st.columns(5)
 cols[0].metric("Gathers", f"{summary.records:,}")
 cols[1].metric("Traces", f"{summary.traces:,}")
@@ -129,15 +130,6 @@ def set_record(index: int) -> None:
 navigation_geometry = source_geometry(scan)
 
 
-def record_label(index: int) -> str:
-    """Return a searchable, human-readable gather selector label."""
-
-    x, y, _ = navigation_geometry[index]
-    return (
-        f"#{index + 1:,} of {len(scan):,}  •  "
-        f"X {x:g}  •  Y {y:g}  •  {scan.counts[index]:,} traces"
-    )
-
 
 with st.sidebar:
     st.divider()
@@ -145,7 +137,7 @@ with st.sidebar:
     record_index = st.selectbox(
         "Selected gather",
         options=range(len(scan)),
-        format_func=record_label,
+        format_func=lambda index: f"Gather {index + 1:,}",
         key="record_index",
     )
     first_col, previous_col, next_col, last_col = st.columns(4)
@@ -181,15 +173,12 @@ with st.sidebar:
         args=(len(scan) - 1,),
         width="stretch",
     )
-    selected_x, selected_y, selected_depth = navigation_geometry[int(record_index)]
-    st.caption(
-        f"X {selected_x:g}  ·  Y {selected_y:g}  ·  "
-        f"Depth {selected_depth:g}  ·  {scan.counts[int(record_index)]:,} traces"
-    )
+    st.caption(f"Gather {int(record_index) + 1:,} of {len(scan):,}")
 record = scan[int(record_index)]
+selected_source = navigation_geometry[int(record_index)]
 
 geometry_tab, gather_tab, headers_tab, overview_tab, diagnostics_tab = st.tabs(
-    ["Survey geometry", "Gather", "Trace headers", "File headers", "Diagnostics"]
+    ["Survey", "Gather workspace", "Gather headers", "File headers", "Survey QC"]
 )
 
 with overview_tab:
@@ -216,7 +205,10 @@ with geometry_tab:
     frame = pd.DataFrame(geometry, columns=["x", "y", "depth"])
     frame["record"] = range(len(frame))
     frame["traces"] = scan.counts
-    depth_label = f"Gather depth ({record.depth_key})"
+    gather_kind = "Receiver gather" if record.by_receiver else "Source gather"
+    depth_keys = sorted({item.depth_key for item in scan.records})
+    depth_header = depth_keys[0] if len(depth_keys) == 1 else "mixed headers"
+    depth_label = f"{gather_kind} depth ({depth_header})"
     gather_color_label = st.selectbox(
         "Color gather locations by",
         [depth_label, "Trace count"],
@@ -233,7 +225,7 @@ with geometry_tab:
         color="color",
         custom_data=["record", "traces"],
         hover_data=["record", "traces"],
-        title="Gather locations",
+        title=f"{gather_kind} locations",
         labels={"color": gather_color_label},
         color_continuous_scale=(
             TRACE_COUNT_COLOR_SCALE
@@ -241,7 +233,6 @@ with geometry_tab:
             else DEPTH_COLOR_SCALE
         ),
     )
-    selected_source = geometry[int(record_index)]
     figure.add_trace(
         go.Scattergl(
             x=[selected_source[0]],
@@ -273,171 +264,191 @@ with geometry_tab:
     if not geometry.size or not geometry[:, :2].any():
         st.warning("No non-zero source or receiver coordinates were detected.")
 
-    st.subheader("Selected gather geometry")
-    receivers = record.rec_coordinates
-    receiver_step = max(1, int(np.ceil(len(receivers) / 5000)))
-    receivers_display = receivers[::receiver_step]
-    receiver_color_label = st.selectbox(
-        "Color receivers by",
-        [f"Receiver depth ({record.rec_depth_key})", "Group water depth", "Trace number"],
-    )
-    if receiver_color_label.startswith("Receiver depth"):
-        receiver_colors = receivers_display[:, 2]
-    elif receiver_color_label == "Trace number":
-        receiver_colors = np.arange(0, record.ntraces, receiver_step)
-    else:
-        receiver_colors = receiver_attribute(
-            scan, int(record_index), "GroupWaterDepth"
-        )[::receiver_step]
-    receiver_frame = pd.DataFrame({
-        "x": receivers_display[:, 0],
-        "y": receivers_display[:, 1],
-        "depth": receivers_display[:, 2],
-        "color": receiver_colors,
-        "trace": np.arange(0, record.ntraces, receiver_step),
-    })
-    receiver_figure = px.scatter(
-        receiver_frame,
-        x="x",
-        y="y",
-        color="color",
-        hover_data=["trace", "depth"],
-        labels={"color": receiver_color_label},
-        title="Receiver locations for the selected gather",
-        color_continuous_scale=(
-            TRACE_COUNT_COLOR_SCALE
-            if receiver_color_label == "Trace number"
-            else DEPTH_COLOR_SCALE
-        ),
-    )
-    receiver_figure.update_yaxes(scaleanchor="x", scaleratio=1)
-    st.plotly_chart(receiver_figure, width="stretch")
-
-    st.subheader("Acquisition depth profile")
-    source_depth = float(selected_source[2])
-    depth_figure = go.Figure()
-    depth_figure.add_trace(go.Scattergl(
-        x=receivers[:, 0],
-        y=receivers[:, 2],
-        mode="lines+markers",
-        name=f"Receiver: {record.rec_depth_key}",
-        customdata=np.arange(record.ntraces),
-        hovertemplate=(
-            "trace=%{customdata}<br>x=%{x:g}<br>depth=%{y:g}<extra></extra>"
-        ),
-    ))
-    depth_figure.add_hline(
-        y=source_depth,
-        line_dash="dash",
-        annotation_text=f"Source: {record.depth_key} = {source_depth:g}",
-        annotation_position="top left",
-    )
-    depth_figure.update_layout(
-        xaxis_title="Receiver X",
-        yaxis_title="Scaled depth / elevation",
-        legend_title="Header selected by pysegy",
-    )
-    if "depth" in record.rec_depth_key.lower():
-        depth_figure.update_yaxes(autorange="reversed")
-    st.plotly_chart(depth_figure, width="stretch")
 
 with gather_tab:
-    control_a, control_b = st.columns(2)
-    trace_range = control_a.slider(
-        "Trace range",
-        0,
-        record.ntraces,
-        (0, record.ntraces),
+    st.subheader(f"Gather {int(record_index) + 1:,}")
+    detail_cols = st.columns(4)
+    detail_cols[0].metric("Source X", f"{selected_source[0]:g}")
+    detail_cols[1].metric("Source Y", f"{selected_source[1]:g}")
+    detail_cols[2].metric(
+        f"Source depth ({record.depth_key})",
+        f"{selected_source[2]:g}",
     )
-    sample_range = control_b.slider(
-        "Sample range",
-        0,
-        record.ns,
-        (0, record.ns),
+    detail_cols[3].metric("Traces", f"{record.ntraces:,}")
+    seismic_tab, receiver_tab, depth_tab = st.tabs(
+        ["Seismic data", "Receiver geometry", "Depth profile"]
     )
-    display_a, display_b, display_c = st.columns(3)
-    display_mode = display_a.selectbox("Display", ["Image", "Wiggle"])
-    axis_mode = display_b.selectbox(
-        "Horizontal axis", ["Trace number", "Receiver X"]
-    )
-    color_scale = display_c.selectbox(
-        "Perceptual color scale", list(SEISMIC_COLOR_SCALES),
-        disabled=display_mode == "Wiggle",
-    )
-    gain_a, gain_b, gain_c, size_control = st.columns(4)
-    percentile = gain_a.slider("Amplitude percentile", 80, 100, 99)
-    time_gain = gain_b.slider("Time gain", 0.0, 3.0, 0.0, 0.25)
-    reverse_polarity = gain_c.toggle("Reverse polarity", value=False)
-    plot_height = size_control.slider(
-        "Plot height",
-        min_value=600,
-        max_value=1200,
-        value=850,
-        step=50,
-        help="Increase the vertical canvas for long seismic records.",
-    )
-    try:
-        window = load_gather(
-            scan,
-            int(record_index),
-            trace_start=trace_range[0],
-            trace_stop=trace_range[1],
-            sample_start=sample_range[0],
-            sample_stop=sample_range[1],
+
+    with seismic_tab:
+        control_a, control_b = st.columns(2)
+        trace_range = control_a.slider(
+            "Trace range",
+            0,
+            record.ntraces,
+            (0, record.ntraces),
         )
-        amplitudes = scaled_amplitudes(
-            window,
-            time_gain=time_gain,
-            reverse_polarity=reverse_polarity,
+        sample_range = control_b.slider(
+            "Sample range",
+            0,
+            record.ns,
+            (0, record.ns),
         )
-        x_values, x_title = horizontal_axis(window, axis_mode)
-        if display_mode == "Image":
-            limit = amplitude_limit(amplitudes, percentile)
-            figure = go.Figure(
-                go.Heatmap(
-                    z=amplitudes,
-                    x=x_values,
-                    y=window.time_seconds,
-                    colorscale=SEISMIC_COLOR_SCALES[color_scale],
-                    zmin=-limit,
-                    zmax=limit,
-                    colorbar={"title": "Amplitude"},
+        display_a, display_b, display_c = st.columns(3)
+        display_mode = display_a.selectbox("Display", ["Image", "Wiggle"])
+        axis_mode = display_b.selectbox(
+            "Horizontal axis", ["Trace number", "Receiver X"]
+        )
+        color_scale = display_c.selectbox(
+            "Perceptual color scale", list(SEISMIC_COLOR_SCALES),
+            disabled=display_mode == "Wiggle",
+        )
+        gain_a, gain_b, gain_c, size_control = st.columns(4)
+        percentile = gain_a.slider("Amplitude percentile", 80, 100, 99)
+        time_gain = gain_b.slider("Time gain", 0.0, 3.0, 0.0, 0.25)
+        reverse_polarity = gain_c.toggle("Reverse polarity", value=False)
+        plot_height = size_control.slider(
+            "Plot height",
+            min_value=600,
+            max_value=1200,
+            value=850,
+            step=50,
+            help="Increase the vertical canvas for long seismic records.",
+        )
+        try:
+            window = load_gather(
+                scan,
+                int(record_index),
+                trace_start=trace_range[0],
+                trace_stop=trace_range[1],
+                sample_start=sample_range[0],
+                sample_stop=sample_range[1],
+            )
+            amplitudes = scaled_amplitudes(
+                window,
+                time_gain=time_gain,
+                reverse_polarity=reverse_polarity,
+            )
+            x_values, x_title = horizontal_axis(window, axis_mode)
+            if display_mode == "Image":
+                limit = amplitude_limit(amplitudes, percentile)
+                figure = go.Figure(
+                    go.Heatmap(
+                        z=amplitudes,
+                        x=x_values,
+                        y=window.time_seconds,
+                        colorscale=SEISMIC_COLOR_SCALES[color_scale],
+                        zmin=-limit,
+                        zmax=limit,
+                        colorbar={"title": "Amplitude"},
+                    )
                 )
+            else:
+                wiggles = prepare_wiggles(
+                    amplitudes,
+                    x_values,
+                    window.time_seconds,
+                )
+                figure = go.Figure()
+                for index, position in enumerate(wiggles.positions):
+                    figure.add_trace(go.Scattergl(
+                        x=wiggles.traces[:, index],
+                        y=wiggles.time_seconds,
+                        mode="lines",
+                        line={"color": "black", "width": 1},
+                        name=f"{position:g}",
+                        hovertemplate=(
+                            f"position={position:g}<br>time=%{{y:.4f}} s<extra></extra>"
+                        ),
+                        showlegend=False,
+                    ))
+            figure.update_layout(
+                autosize=True,
+                height=plot_height,
+                margin={"l": 65, "r": 35, "t": 35, "b": 60},
+                xaxis_title=x_title,
+                yaxis_title="Time [s]",
             )
+            figure.update_yaxes(autorange="reversed")
+            st.plotly_chart(figure, width="stretch")
+            st.caption(
+                f"Displaying {window.data.shape[1]:,} traces × "
+                f"{window.data.shape[0]:,} samples. Large selections are downsampled."
+            )
+        except Exception as exc:
+            st.error(f"Could not load this gather: {exc}")
+
+    with receiver_tab:
+        receivers = record.rec_coordinates
+        receiver_step = max(1, int(np.ceil(len(receivers) / 5000)))
+        receivers_display = receivers[::receiver_step]
+        receiver_color_label = st.selectbox(
+            "Color receivers by",
+            [
+                f"Receiver depth ({record.rec_depth_key})",
+                "Group water depth",
+                "Trace number",
+            ],
+        )
+        if receiver_color_label.startswith("Receiver depth"):
+            receiver_colors = receivers_display[:, 2]
+        elif receiver_color_label == "Trace number":
+            receiver_colors = np.arange(0, record.ntraces, receiver_step)
         else:
-            wiggles = prepare_wiggles(
-                amplitudes,
-                x_values,
-                window.time_seconds,
-            )
-            figure = go.Figure()
-            for index, position in enumerate(wiggles.positions):
-                figure.add_trace(go.Scattergl(
-                    x=wiggles.traces[:, index],
-                    y=wiggles.time_seconds,
-                    mode="lines",
-                    line={"color": "black", "width": 1},
-                    name=f"{position:g}",
-                    hovertemplate=(
-                        f"position={position:g}<br>time=%{{y:.4f}} s<extra></extra>"
-                    ),
-                    showlegend=False,
-                ))
-        figure.update_layout(
-            autosize=True,
-            height=plot_height,
-            margin={"l": 65, "r": 35, "t": 35, "b": 60},
-            xaxis_title=x_title,
-            yaxis_title="Time [s]",
+            receiver_colors = receiver_attribute(
+                scan, int(record_index), "GroupWaterDepth"
+            )[::receiver_step]
+        receiver_frame = pd.DataFrame({
+            "x": receivers_display[:, 0],
+            "y": receivers_display[:, 1],
+            "depth": receivers_display[:, 2],
+            "color": receiver_colors,
+            "trace": np.arange(0, record.ntraces, receiver_step),
+        })
+        receiver_figure = px.scatter(
+            receiver_frame,
+            x="x",
+            y="y",
+            color="color",
+            hover_data=["trace", "depth"],
+            labels={"color": receiver_color_label},
+            title="Receiver locations for the selected gather",
+            color_continuous_scale=(
+                TRACE_COUNT_COLOR_SCALE
+                if receiver_color_label == "Trace number"
+                else DEPTH_COLOR_SCALE
+            ),
         )
-        figure.update_yaxes(autorange="reversed")
-        st.plotly_chart(figure, width="stretch")
-        st.caption(
-            f"Displaying {window.data.shape[1]:,} traces × "
-            f"{window.data.shape[0]:,} samples. Large selections are downsampled."
+        receiver_figure.update_yaxes(scaleanchor="x", scaleratio=1)
+        st.plotly_chart(receiver_figure, width="stretch")
+
+
+    with depth_tab:
+        source_depth = float(selected_source[2])
+        depth_figure = go.Figure()
+        depth_figure.add_trace(go.Scattergl(
+            x=receivers[:, 0],
+            y=receivers[:, 2],
+            mode="lines+markers",
+            name=f"Receiver: {record.rec_depth_key}",
+            customdata=np.arange(record.ntraces),
+            hovertemplate=(
+                "trace=%{customdata}<br>x=%{x:g}<br>depth=%{y:g}<extra></extra>"
+            ),
+        ))
+        depth_figure.add_hline(
+            y=source_depth,
+            line_dash="dash",
+            annotation_text=f"Source: {record.depth_key} = {source_depth:g}",
+            annotation_position="top left",
         )
-    except Exception as exc:
-        st.error(f"Could not load this gather: {exc}")
+        depth_figure.update_layout(
+            xaxis_title="Receiver X",
+            yaxis_title="Scaled depth / elevation",
+            legend_title="Header selected by pysegy",
+        )
+        if "depth" in record.rec_depth_key.lower():
+            depth_figure.update_yaxes(autorange="reversed")
+        st.plotly_chart(depth_figure, width="stretch")
 
 with headers_tab:
     fields = st.multiselect(
