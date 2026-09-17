@@ -33,6 +33,63 @@ Or to install the latest pypi release
 pip install pysegy
 ```
 
+## Local viewer
+
+Install the optional viewer dependencies and launch the local browser app:
+
+```bash
+pip install "pysegy[viewer]"
+pysegy-viewer /path/to/dataset.segy
+```
+
+The viewer binds to ``127.0.0.1`` by default. Files are read directly from the
+local filesystem and are not uploaded to a remote service. The initial viewer
+shows survey dimensions, gather geometry, and a bounded, automatically
+downsampled seismic image for the selected gather. Scan metadata is cached in
+the platform's user cache directory and can be cleared from the sidebar. The
+trace-header view provides a searchable table, histogram, and CSV download for
+selected fields. Gather controls include image and wiggle displays, trace or
+receiver-coordinate axes, amplitude clipping, time gain, polarity, and color
+scale selection, including Colorcet perceptual gray, a balanced seismic palette,
+a perceptual RTM palette that reserves color for the outer 20% of each extreme,
+and an
+orange–black palette. The gather canvas is tall by default and its
+height can be adjusted between 600 and 1200 pixels for different record lengths
+and screens.
+The file-header tab places a valid decoded 3200-byte ASCII or EBCDIC textual
+header above every binary-header field and skips it when it is unreadable.
+Geometry views can color gathers and
+receivers by source or group water depth, with a dedicated water-depth profile
+for the selected gather. Click a gather location on the geometry plot to select
+it, or move through the survey with the previous and next gather controls. A
+diagnostics tab checks source coordinates, duplicate and empty gathers, sample
+consistency, and water-depth metadata without reading trace samples.
+
+The sidebar has two cohesive workspaces rather than a flat collection of pages.
+The **Open file…** button uses the operating system's standard file chooser to
+select an individual SEG-Y file. Manual path entry remains available for survey
+directories, mounted volumes, and network paths. On Linux, the native chooser
+uses Zenity or KDialog when either is installed.
+**Survey** combines the survey summary and global geometry, with file headers and
+quality-control details available as secondary expandable sections. **Gather**
+keeps the seismic display primary and groups receiver geometry, depth profile,
+and trace headers beneath it as expandable supporting sections. Gather selection
+appears only in that workspace and selects only a gather number; coordinates,
+the detected depth header and value, and trace count are described separately in
+the main page. Trace headers are plotted as profiles rather than histograms.
+Compact segmented controls switch the active view without adding a long page.
+The seismic workspace keeps two compact rows of always-visible controls above a
+full-width plot; gain and layout settings do not require opening a menu. The
+trace-header table and profile are separate side-by-side panels. Visible
+coordinate, depth, interval, sample, frequency, and plot-size values include
+their units or are explicitly identified as scaled SEG-Y values/codes.
+Wiggle plots use a conventional black trace with blue negative-area fill and red
+positive-area fill, making polarity visible without relying on line position alone.
+The Gather workspace can also compare two to four gathers in one continuous
+multi-panel figure. Panels have equal widths, no inter-panel gap, a shared time
+axis, and shared amplitude limits, color scale, clipping percentile, and time
+gain.
+
 ## Testing
 
 Run the unit tests with `pytest`:
