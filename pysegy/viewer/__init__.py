@@ -6,9 +6,12 @@ launch it with the ``pysegy-viewer`` command.
 
 from .services import (
     DatasetSummary,
+    DatasetDiagnostics,
+    DiagnosticCheck,
     GatherWindow,
     HeaderTable,
     FileHeaderInfo,
+    dataset_diagnostics,
     dataset_summary,
     file_header_info,
     gather_summary_values,
@@ -27,9 +30,12 @@ from .display import (
 
 __all__ = [
     "DatasetSummary",
+    "DatasetDiagnostics",
+    "DiagnosticCheck",
     "GatherWindow",
     "HeaderTable",
     "FileHeaderInfo",
+    "dataset_diagnostics",
     "dataset_summary",
     "file_header_info",
     "gather_summary_values",

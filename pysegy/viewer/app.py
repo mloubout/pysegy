@@ -24,6 +24,7 @@ from pysegy.viewer.display import (
 )
 from pysegy.viewer.services import (
     DEFAULT_HEADER_FIELDS,
+    dataset_diagnostics,
     dataset_summary,
     file_header_info,
     gather_summary_values,
@@ -139,8 +140,8 @@ next_col.button(
 )
 record = scan[int(record_index)]
 
-overview_tab, geometry_tab, gather_tab, headers_tab = st.tabs(
-    ["File headers", "Geometry", "Gather", "Trace headers"]
+overview_tab, geometry_tab, gather_tab, headers_tab, diagnostics_tab = st.tabs(
+    ["File headers", "Geometry", "Gather", "Trace headers", "Diagnostics"]
 )
 
 with overview_tab:
@@ -419,3 +420,28 @@ with headers_tab:
             )
     except Exception as exc:
         st.error(f"Could not load trace headers: {exc}")
+
+with diagnostics_tab:
+    diagnostics = dataset_diagnostics(scan)
+    bounds = diagnostics.coordinate_bounds
+    diagnostic_cols = st.columns(3)
+    diagnostic_cols[0].metric("Files", f"{diagnostics.files:,}")
+    diagnostic_cols[1].metric("Source X range", f"{bounds[0]:g} to {bounds[1]:g}")
+    diagnostic_cols[2].metric("Source Y range", f"{bounds[2]:g} to {bounds[3]:g}")
+    diagnostic_frame = pd.DataFrame([
+        {
+            "Check": check.check,
+            "Status": check.status,
+            "Details": check.details,
+        }
+        for check in diagnostics.checks
+    ])
+    st.dataframe(diagnostic_frame, width="stretch", hide_index=True)
+    warning_count = sum(check.status == "Warning" for check in diagnostics.checks)
+    if warning_count:
+        st.warning(
+            f"{warning_count} diagnostic check(s) need review. "
+            "Warnings can reflect valid acquisition geometry as well as bad headers."
+        )
+    else:
+        st.success("All metadata diagnostics passed.")

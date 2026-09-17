@@ -61,7 +61,9 @@ header above every binary-header field and skips it when it is unreadable.
 Geometry views can color gathers and
 receivers by source or group water depth, with a dedicated water-depth profile
 for the selected gather. Click a gather location on the geometry plot to select
-it, or move through the survey with the previous and next gather controls.
+it, or move through the survey with the previous and next gather controls. A
+diagnostics tab checks source coordinates, duplicate and empty gathers, sample
+consistency, and water-depth metadata without reading trace samples.
 
 ## Testing
 

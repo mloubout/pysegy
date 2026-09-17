@@ -5,6 +5,7 @@ import pytest
 
 from pysegy.viewer.services import (
     _decode_textual_header,
+    dataset_diagnostics,
     dataset_summary,
     file_header_info,
     gather_summary_values,
@@ -47,6 +48,17 @@ def test_scan_and_summarize_dataset(scan):
     assert summary.samples_per_trace == 751
     assert summary.sample_interval_us == 4000
     assert source_geometry(scan).shape == (20, 3)
+
+
+def test_dataset_diagnostics_are_bounded_and_actionable(scan):
+    diagnostics = dataset_diagnostics(scan)
+    assert diagnostics.files == 1
+    assert diagnostics.coordinate_bounds == (400.0, 4200.0, 0.0, 0.0)
+    checks = {check.check: check for check in diagnostics.checks}
+    assert checks["Source coordinates"].status == "Pass"
+    assert checks["Samples per trace"].status == "Pass"
+    assert checks["Sample intervals [µs]"].details == "4000"
+    assert checks["Water-depth summaries"].status == "Warning"
 
 
 def test_file_header_information(scan):

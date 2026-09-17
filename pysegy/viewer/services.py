@@ -36,6 +36,24 @@ class DatasetSummary:
 
 
 @dataclass(frozen=True)
+class DiagnosticCheck:
+    """One survey quality-control result for display in the viewer."""
+
+    check: str
+    status: str
+    details: str
+
+
+@dataclass(frozen=True)
+class DatasetDiagnostics:
+    """Bounded survey-level geometry and consistency diagnostics."""
+
+    files: int
+    coordinate_bounds: tuple[float, float, float, float]
+    checks: tuple[DiagnosticCheck, ...]
+
+
+@dataclass(frozen=True)
 class GatherWindow:
     """A bounded portion of a gather ready for interactive rendering."""
 
@@ -160,6 +178,78 @@ def dataset_summary(scan: SegyScan) -> DatasetSummary:
         samples_per_trace=header.ns,
         sample_interval_us=header.dt,
         sample_format=header.DataSampleFormat,
+    )
+
+
+def dataset_diagnostics(scan: SegyScan) -> DatasetDiagnostics:
+    """Inspect scan metadata without reading trace samples or all receivers."""
+
+    geometry = source_geometry(scan)
+    locations = geometry[:, :2] if geometry.size else np.empty((0, 2))
+    finite = np.all(np.isfinite(locations), axis=1)
+    zero = np.all(locations == 0, axis=1)
+    valid_locations = locations[finite & ~zero]
+    unique_locations = np.unique(valid_locations, axis=0)
+    duplicates = len(valid_locations) - len(unique_locations)
+    sample_counts = sorted({int(record.ns) for record in scan.records})
+    sample_intervals = sorted({int(record.dt) for record in scan.records})
+    empty_records = sum(record.ntraces == 0 for record in scan.records)
+
+    water_summary = {}
+    for field in WATER_DEPTH_FIELDS:
+        values = gather_summary_values(scan, field)
+        water_summary[field] = (
+            int(np.count_nonzero(~np.isfinite(values))),
+            int(np.count_nonzero(np.isfinite(values) & (values != 0))),
+        )
+
+    def consistency(values: list[int], label: str) -> DiagnosticCheck:
+        status = "Pass" if len(values) <= 1 else "Warning"
+        details = ", ".join(map(str, values)) if values else "No values"
+        return DiagnosticCheck(label, status, details)
+
+    checks = (
+        DiagnosticCheck(
+            "Source coordinates",
+            "Pass" if np.all(finite) and not np.any(zero) else "Warning",
+            f"{np.count_nonzero(~finite):,} non-finite; "
+            f"{np.count_nonzero(zero):,} all-zero locations",
+        ),
+        DiagnosticCheck(
+            "Duplicate gather locations",
+            "Pass" if duplicates == 0 else "Warning",
+            f"{duplicates:,} duplicate locations",
+        ),
+        DiagnosticCheck(
+            "Empty gathers",
+            "Pass" if empty_records == 0 else "Warning",
+            f"{empty_records:,} gathers without traces",
+        ),
+        consistency(sample_counts, "Samples per trace"),
+        consistency(sample_intervals, "Sample intervals [µs]"),
+        DiagnosticCheck(
+            "Water-depth summaries",
+            "Pass" if all(nonzero for _, nonzero in water_summary.values())
+            else "Warning",
+            "; ".join(
+                f"{field}: {missing:,} missing, {nonzero:,} non-zero"
+                for field, (missing, nonzero) in water_summary.items()
+            ),
+        ),
+    )
+    if valid_locations.size:
+        bounds = (
+            float(np.min(valid_locations[:, 0])),
+            float(np.max(valid_locations[:, 0])),
+            float(np.min(valid_locations[:, 1])),
+            float(np.max(valid_locations[:, 1])),
+        )
+    else:
+        bounds = (np.nan, np.nan, np.nan, np.nan)
+    return DatasetDiagnostics(
+        files=len(set(scan.paths)),
+        coordinate_bounds=bounds,
+        checks=checks,
     )
 
 
