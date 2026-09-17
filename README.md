@@ -73,6 +73,11 @@ and trace headers beneath it as expandable supporting sections. Gather selection
 appears only in that workspace and selects only a gather number; coordinates,
 the detected depth header and value, and trace count are described separately in
 the main page. Trace headers are plotted as profiles rather than histograms.
+Compact segmented controls switch the active view without adding a long page.
+The seismic workspace uses a side-by-side control and plot layout, and the
+trace-header table and profile are separate side-by-side panels. Visible
+coordinate, depth, interval, sample, frequency, and plot-size values include
+their units or are explicitly identified as scaled SEG-Y values/codes.
 
 ## Testing
 
