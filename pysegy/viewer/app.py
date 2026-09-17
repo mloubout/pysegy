@@ -352,114 +352,121 @@ if workspace == "Gather":
     detail_cols[3].metric("Traces", f"{record.ntraces:,}")
     if gather_view == "Seismic":
         st.subheader("Seismic data")
-        control_panel, plot_panel = st.columns([1, 3], gap="large")
-        with control_panel:
-            with st.container(border=True):
-                st.markdown("**Display controls**")
-                trace_range = st.slider(
-                    "Trace range [trace number]",
-                    0,
-                    record.ntraces,
-                    (0, record.ntraces),
-                )
-                sample_range = st.slider(
-                    "Sample range [sample number]",
-                    0,
-                    record.ns,
-                    (0, record.ns),
-                )
-                display_mode = st.selectbox("Display", ["Image", "Wiggle"])
-                axis_mode = st.selectbox(
-                    "Horizontal axis", ["Trace number", "Receiver X"]
-                )
-                color_scale = st.selectbox(
-                    "Perceptual color scale",
-                    list(SEISMIC_COLOR_SCALES),
-                    disabled=display_mode == "Wiggle",
-                )
-                with st.popover("Gain & layout", width="stretch"):
-                    percentile = st.slider("Amplitude clipping [%]", 80, 100, 99)
-                    time_gain = st.slider(
-                        "Time gain exponent [dimensionless]",
-                        0.0,
-                        3.0,
-                        0.0,
-                        0.25,
+        with st.container(border=True):
+            st.markdown("**Display controls**")
+            trace_control, sample_control, display_control, axis_control = st.columns(
+                [2, 2, 1, 1]
+            )
+            trace_range = trace_control.slider(
+                "Trace range [trace number]",
+                0,
+                record.ntraces,
+                (0, record.ntraces),
+            )
+            sample_range = sample_control.slider(
+                "Sample range [sample number]",
+                0,
+                record.ns,
+                (0, record.ns),
+            )
+            display_mode = display_control.selectbox(
+                "Display", ["Image", "Wiggle"]
+            )
+            axis_mode = axis_control.selectbox(
+                "Horizontal axis", ["Trace number", "Receiver X"]
+            )
+            advanced_controls = st.columns([1.4, 1.4, 1.4, 1, 1.4])
+            (
+                color_control,
+                clip_control,
+                gain_control,
+                polarity_control,
+                height_control,
+            ) = advanced_controls
+            color_scale = color_control.selectbox(
+                "Perceptual color scale",
+                list(SEISMIC_COLOR_SCALES),
+                disabled=display_mode == "Wiggle",
+            )
+            percentile = clip_control.slider(
+                "Amplitude clipping [%]", 80, 100, 99
+            )
+            time_gain = gain_control.slider(
+                "Time gain exponent [dimensionless]", 0.0, 3.0, 0.0, 0.25
+            )
+            reverse_polarity = polarity_control.toggle(
+                "Reverse polarity", value=False
+            )
+            plot_height = height_control.slider(
+                "Plot height [px]",
+                min_value=450,
+                max_value=850,
+                value=650,
+                step=50,
+            )
+        try:
+            window = load_gather(
+                scan,
+                int(record_index),
+                trace_start=trace_range[0],
+                trace_stop=trace_range[1],
+                sample_start=sample_range[0],
+                sample_stop=sample_range[1],
+            )
+            amplitudes = scaled_amplitudes(
+                window,
+                time_gain=time_gain,
+                reverse_polarity=reverse_polarity,
+            )
+            x_values, x_title = horizontal_axis(window, axis_mode)
+            if display_mode == "Image":
+                limit = amplitude_limit(amplitudes, percentile)
+                figure = go.Figure(
+                    go.Heatmap(
+                        z=amplitudes,
+                        x=x_values,
+                        y=window.time_seconds,
+                        colorscale=SEISMIC_COLOR_SCALES[color_scale],
+                        zmin=-limit,
+                        zmax=limit,
+                        colorbar={"title": "Amplitude"},
                     )
-                    reverse_polarity = st.toggle(
-                        "Reverse polarity", value=False
-                    )
-                    plot_height = st.slider(
-                        "Plot height [px]",
-                        min_value=450,
-                        max_value=850,
-                        value=650,
-                        step=50,
-                    )
-        with plot_panel:
-            try:
-                window = load_gather(
-                    scan,
-                    int(record_index),
-                    trace_start=trace_range[0],
-                    trace_stop=trace_range[1],
-                    sample_start=sample_range[0],
-                    sample_stop=sample_range[1],
                 )
-                amplitudes = scaled_amplitudes(
-                    window,
-                    time_gain=time_gain,
-                    reverse_polarity=reverse_polarity,
+            else:
+                wiggles = prepare_wiggles(
+                    amplitudes,
+                    x_values,
+                    window.time_seconds,
                 )
-                x_values, x_title = horizontal_axis(window, axis_mode)
-                if display_mode == "Image":
-                    limit = amplitude_limit(amplitudes, percentile)
-                    figure = go.Figure(
-                        go.Heatmap(
-                            z=amplitudes,
-                            x=x_values,
-                            y=window.time_seconds,
-                            colorscale=SEISMIC_COLOR_SCALES[color_scale],
-                            zmin=-limit,
-                            zmax=limit,
-                            colorbar={"title": "Amplitude"},
-                        )
-                    )
-                else:
-                    wiggles = prepare_wiggles(
-                        amplitudes,
-                        x_values,
-                        window.time_seconds,
-                    )
-                    figure = go.Figure()
-                    for index, position in enumerate(wiggles.positions):
-                        figure.add_trace(go.Scattergl(
-                            x=wiggles.traces[:, index],
-                            y=wiggles.time_seconds,
-                            mode="lines",
-                            line={"color": "black", "width": 1},
-                            name=f"{position:g}",
-                            hovertemplate=(
-                                f"position={position:g}<br>"
-                                "time=%{y:.4f} s<extra></extra>"
-                            ),
-                            showlegend=False,
-                        ))
-                figure.update_layout(
-                    autosize=True,
-                    height=plot_height,
-                    margin={"l": 65, "r": 35, "t": 35, "b": 60},
-                    xaxis_title=x_title,
-                    yaxis_title="Time [s]",
-                )
-                figure.update_yaxes(autorange="reversed")
-                st.plotly_chart(figure, width="stretch")
-                st.caption(
-                    f"Displaying {window.data.shape[1]:,} traces × "
-                    f"{window.data.shape[0]:,} samples. Large selections are downsampled."
-                )
-            except Exception as exc:
-                st.error(f"Could not load this gather: {exc}")
+                figure = go.Figure()
+                for index, position in enumerate(wiggles.positions):
+                    figure.add_trace(go.Scattergl(
+                        x=wiggles.traces[:, index],
+                        y=wiggles.time_seconds,
+                        mode="lines",
+                        line={"color": "black", "width": 1},
+                        name=f"{position:g}",
+                        hovertemplate=(
+                            f"position={position:g}<br>"
+                            "time=%{y:.4f} s<extra></extra>"
+                        ),
+                        showlegend=False,
+                    ))
+            figure.update_layout(
+                autosize=True,
+                height=plot_height,
+                margin={"l": 65, "r": 35, "t": 35, "b": 60},
+                xaxis_title=x_title,
+                yaxis_title="Time [s]",
+            )
+            figure.update_yaxes(autorange="reversed")
+            st.plotly_chart(figure, width="stretch")
+            st.caption(
+                f"Displaying {window.data.shape[1]:,} traces × "
+                f"{window.data.shape[0]:,} samples. Large selections are downsampled."
+            )
+        except Exception as exc:
+            st.error(f"Could not load this gather: {exc}")
 
     if gather_view == "Geometry & depth":
         geometry_view = st.segmented_control(
