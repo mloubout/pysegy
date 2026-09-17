@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import streamlit as st
 
 from pysegy.types import TH_FIELDS
@@ -622,10 +623,19 @@ if workspace == "Gather":
             comparison_indices = validate_comparison_records(
                 selected_records, len(scan)
             )
+            sample_intervals = {scan[index].dt for index in comparison_indices}
+            if len(sample_intervals) != 1:
+                raise ValueError(
+                    "Selected gathers must have the same sample interval"
+                )
+            common_sample_count = min(
+                scan[index].ns for index in comparison_indices
+            )
             comparison_windows = [
                 load_gather(
                     scan,
                     index,
+                    sample_stop=common_sample_count,
                     max_traces=250,
                     max_samples=1200,
                 )
@@ -639,38 +649,61 @@ if workspace == "Gather":
                 amplitude_limit(values, comparison_percentile)
                 for values in comparison_amplitudes
             )
-            comparison_columns = st.columns(len(comparison_indices))
+            subplot_titles = []
+            for index in comparison_indices:
+                source = navigation_geometry[index]
+                subplot_titles.append(
+                    f"Gather {index + 1:,}<br>"
+                    f"<sup>X {source[0]:g}, Y {source[1]:g} "
+                    f"[{COORDINATE_UNITS}] · {scan[index].ntraces:,} traces</sup>"
+                )
+            comparison_figure = make_subplots(
+                rows=1,
+                cols=len(comparison_indices),
+                shared_yaxes=True,
+                horizontal_spacing=0.0,
+                subplot_titles=subplot_titles,
+            )
             for column_number, (index, window, values) in enumerate(zip(
                 comparison_indices,
                 comparison_windows,
                 comparison_amplitudes,
             )):
-                comparison_record = scan[index]
-                comparison_source = navigation_geometry[index]
-                comparison_figure = go.Figure(go.Heatmap(
-                    z=values,
-                    x=window.trace_indices,
-                    y=window.time_seconds,
-                    colorscale=SEISMIC_COLOR_SCALES[comparison_scale],
-                    zmin=-shared_limit,
-                    zmax=shared_limit,
-                    showscale=column_number == len(comparison_indices) - 1,
-                    colorbar={"title": "Amplitude"},
-                ))
-                comparison_figure.update_layout(
-                    title=f"Gather {index + 1:,}",
-                    height=650,
-                    margin={"l": 55, "r": 20, "t": 50, "b": 50},
-                    xaxis_title="Trace number",
-                    yaxis_title="Time [s]" if column_number == 0 else None,
+                comparison_figure.add_trace(
+                    go.Heatmap(
+                        z=values,
+                        x=window.trace_indices,
+                        y=window.time_seconds,
+                        colorscale=SEISMIC_COLOR_SCALES[comparison_scale],
+                        zmin=-shared_limit,
+                        zmax=shared_limit,
+                        showscale=(
+                            column_number == len(comparison_indices) - 1
+                        ),
+                        colorbar={"title": "Amplitude", "x": 1.01},
+                    ),
+                    row=1,
+                    col=column_number + 1,
                 )
-                comparison_figure.update_yaxes(autorange="reversed")
-                with comparison_columns[column_number]:
-                    st.caption(
-                        f"X {comparison_source[0]:g}, Y {comparison_source[1]:g} "
-                        f"[{COORDINATE_UNITS}] · {comparison_record.ntraces:,} traces"
-                    )
-                    st.plotly_chart(comparison_figure, width="stretch")
+                comparison_figure.update_xaxes(
+                    title_text="Trace number",
+                    showline=True,
+                    linewidth=1,
+                    linecolor="#808080",
+                    row=1,
+                    col=column_number + 1,
+                )
+            comparison_figure.update_yaxes(
+                autorange="reversed",
+                title_text="Time [s]",
+                row=1,
+                col=1,
+            )
+            comparison_figure.update_layout(
+                height=700,
+                margin={"l": 60, "r": 80, "t": 75, "b": 55},
+            )
+            st.plotly_chart(comparison_figure, width="stretch")
         except (ValueError, IndexError) as exc:
             st.info(str(exc))
 
