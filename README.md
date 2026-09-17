@@ -65,11 +65,13 @@ it, or move through the survey with the previous and next gather controls. A
 diagnostics tab checks source coordinates, duplicate and empty gathers, sample
 consistency, and water-depth metadata without reading trace samples.
 
-Gather navigation includes first, previous, searchable gather, next, and last
-controls. Survey sources and selected-gather receivers use separate geometry
-plots so each view has one unambiguous color scale. The geometry tab also shows
-the source and receiver depth headers selected by pysegy, while the trace-header
-tab plots header values as a trace profile instead of a histogram.
+Gather navigation lives in the sidebar with a searchable gather selector and
+compact first, previous, next, and last controls. Survey-level geometry uses
+only gather-level depth and trace-count fields; receiver attributes remain in a
+separate selected-gather plot. Each view therefore has one unambiguous color
+scale. The geometry tab also shows the source and receiver depth headers selected
+by pysegy, while the trace-header tab plots header values as a trace profile
+instead of a histogram.
 
 ## Testing
 

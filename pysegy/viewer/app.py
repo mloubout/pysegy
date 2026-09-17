@@ -27,7 +27,6 @@ from pysegy.viewer.services import (
     dataset_diagnostics,
     dataset_summary,
     file_header_info,
-    gather_summary_values,
     load_gather,
     load_header_table,
     receiver_attribute,
@@ -47,20 +46,25 @@ SEISMIC_COLOR_SCALES = {
     "RTM": RTM_COLORSCALE,
     "Orange–black": ORANGE_BLACK_COLORSCALE,
 }
-WATER_DEPTH_COLOR_SCALE = plotly_colorscale(cc.cm.bgy)
+DEPTH_COLOR_SCALE = plotly_colorscale(cc.cm.bgy)
 TRACE_COUNT_COLOR_SCALE = plotly_colorscale(cc.cm.fire)
-SIGNED_DEPTH_COLOR_SCALE = SEISMIC_COLOR_SCALES["Seismic"]
 
 with st.sidebar:
-    st.header("Dataset")
-    path = st.text_input("SEG-Y file or directory", os.getenv("PYSEGY_VIEWER_PATH", ""))
-    pattern = st.text_input("Directory pattern", "*.segy")
-    by_receiver = st.toggle("Group by receiver", value=False)
-    use_cache = st.toggle("Cache scan metadata", value=True)
-    scan_clicked = st.button("Scan dataset", type="primary", width="stretch")
-    if st.button("Clear scan cache", width="stretch"):
-        removed = clear_cache()
-        st.success(f"Removed {removed} cached scan file(s).")
+    with st.expander(
+        "Dataset",
+        expanded=st.session_state.get("scan") is None,
+    ):
+        path = st.text_input(
+            "SEG-Y file or directory",
+            os.getenv("PYSEGY_VIEWER_PATH", ""),
+        )
+        pattern = st.text_input("Directory pattern", "*.segy")
+        by_receiver = st.toggle("Group by receiver", value=False)
+        use_cache = st.toggle("Cache scan metadata", value=True)
+        scan_clicked = st.button("Scan dataset", type="primary", width="stretch")
+        if st.button("Clear scan cache", width="stretch"):
+            removed = clear_cache()
+            st.success(f"Removed {removed} cached scan file(s).")
 
 if scan_clicked:
     try:
@@ -135,47 +139,57 @@ def record_label(index: int) -> str:
     )
 
 
-first_col, previous_col, index_col, next_col, last_col = st.columns(
-    [1, 1, 4, 1, 1]
-)
-first_col.button(
-    "⇤ First",
-    disabled=st.session_state.record_index == 0,
-    on_click=set_record,
-    args=(0,),
-    width="stretch",
-)
-previous_col.button(
-    "← Previous",
-    disabled=st.session_state.record_index == 0,
-    on_click=step_record,
-    args=(-1,),
-    width="stretch",
-)
-record_index = index_col.selectbox(
-    "Selected gather",
-    options=range(len(scan)),
-    format_func=record_label,
-    key="record_index",
-)
-next_col.button(
-    "Next →",
-    disabled=st.session_state.record_index == len(scan) - 1,
-    on_click=step_record,
-    args=(1,),
-    width="stretch",
-)
-last_col.button(
-    "Last ⇥",
-    disabled=st.session_state.record_index == len(scan) - 1,
-    on_click=set_record,
-    args=(len(scan) - 1,),
-    width="stretch",
-)
+with st.sidebar:
+    st.divider()
+    st.header("Gather navigation")
+    record_index = st.selectbox(
+        "Selected gather",
+        options=range(len(scan)),
+        format_func=record_label,
+        key="record_index",
+    )
+    first_col, previous_col, next_col, last_col = st.columns(4)
+    first_col.button(
+        "⇤",
+        help="First gather",
+        disabled=st.session_state.record_index == 0,
+        on_click=set_record,
+        args=(0,),
+        width="stretch",
+    )
+    previous_col.button(
+        "←",
+        help="Previous gather",
+        disabled=st.session_state.record_index == 0,
+        on_click=step_record,
+        args=(-1,),
+        width="stretch",
+    )
+    next_col.button(
+        "→",
+        help="Next gather",
+        disabled=st.session_state.record_index == len(scan) - 1,
+        on_click=step_record,
+        args=(1,),
+        width="stretch",
+    )
+    last_col.button(
+        "⇥",
+        help="Last gather",
+        disabled=st.session_state.record_index == len(scan) - 1,
+        on_click=set_record,
+        args=(len(scan) - 1,),
+        width="stretch",
+    )
+    selected_x, selected_y, selected_depth = navigation_geometry[int(record_index)]
+    st.caption(
+        f"X {selected_x:g}  ·  Y {selected_y:g}  ·  "
+        f"Depth {selected_depth:g}  ·  {scan.counts[int(record_index)]:,} traces"
+    )
 record = scan[int(record_index)]
 
-overview_tab, geometry_tab, gather_tab, headers_tab, diagnostics_tab = st.tabs(
-    ["File headers", "Geometry", "Gather", "Trace headers", "Diagnostics"]
+geometry_tab, gather_tab, headers_tab, overview_tab, diagnostics_tab = st.tabs(
+    ["Survey geometry", "Gather", "Trace headers", "File headers", "Diagnostics"]
 )
 
 with overview_tab:
@@ -202,15 +216,14 @@ with geometry_tab:
     frame = pd.DataFrame(geometry, columns=["x", "y", "depth"])
     frame["record"] = range(len(frame))
     frame["traces"] = scan.counts
+    depth_label = f"Gather depth ({record.depth_key})"
     gather_color_label = st.selectbox(
         "Color gather locations by",
-        ["Gather depth", "Trace count", "Source water depth", "Group water depth"],
+        [depth_label, "Trace count"],
     )
     gather_colors = {
-        "Gather depth": frame["depth"],
+        depth_label: frame["depth"],
         "Trace count": frame["traces"],
-        "Source water depth": gather_summary_values(scan, "SourceWaterDepth"),
-        "Group water depth": gather_summary_values(scan, "GroupWaterDepth"),
     }
     frame["color"] = gather_colors[gather_color_label]
     figure = px.scatter(
@@ -225,14 +238,7 @@ with geometry_tab:
         color_continuous_scale=(
             TRACE_COUNT_COLOR_SCALE
             if gather_color_label == "Trace count"
-            else (
-                SIGNED_DEPTH_COLOR_SCALE
-                if gather_color_label == "Gather depth"
-                else WATER_DEPTH_COLOR_SCALE
-            )
-        ),
-        color_continuous_midpoint=(
-            0 if gather_color_label == "Gather depth" else None
+            else DEPTH_COLOR_SCALE
         ),
     )
     selected_source = geometry[int(record_index)]
@@ -273,17 +279,15 @@ with geometry_tab:
     receivers_display = receivers[::receiver_step]
     receiver_color_label = st.selectbox(
         "Color receivers by",
-        ["Receiver depth", "Source water depth", "Group water depth"],
+        [f"Receiver depth ({record.rec_depth_key})", "Group water depth", "Trace number"],
     )
-    if receiver_color_label == "Receiver depth":
+    if receiver_color_label.startswith("Receiver depth"):
         receiver_colors = receivers_display[:, 2]
+    elif receiver_color_label == "Trace number":
+        receiver_colors = np.arange(0, record.ntraces, receiver_step)
     else:
-        receiver_field = {
-            "Source water depth": "SourceWaterDepth",
-            "Group water depth": "GroupWaterDepth",
-        }[receiver_color_label]
         receiver_colors = receiver_attribute(
-            scan, int(record_index), receiver_field
+            scan, int(record_index), "GroupWaterDepth"
         )[::receiver_step]
     receiver_frame = pd.DataFrame({
         "x": receivers_display[:, 0],
@@ -300,7 +304,11 @@ with geometry_tab:
         hover_data=["trace", "depth"],
         labels={"color": receiver_color_label},
         title="Receiver locations for the selected gather",
-        color_continuous_scale=WATER_DEPTH_COLOR_SCALE,
+        color_continuous_scale=(
+            TRACE_COUNT_COLOR_SCALE
+            if receiver_color_label == "Trace number"
+            else DEPTH_COLOR_SCALE
+        ),
     )
     receiver_figure.update_yaxes(scaleanchor="x", scaleratio=1)
     st.plotly_chart(receiver_figure, width="stretch")
