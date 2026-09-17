@@ -90,6 +90,16 @@ multi-panel figure. Panels have equal widths, no inter-panel gap, a shared time
 axis, and shared amplitude limits, color scale, clipping percentile, and time
 gain.
 
+### Streamlit Community Cloud
+
+Deploy `pysegy/viewer/app.py` as the main module. The repository-level
+`requirements.txt` installs the core and viewer dependencies directly and
+keeps Community Cloud from interpreting the setuptools-based `pyproject.toml`
+as a Poetry project. The native file dialog is intended for local launches;
+cloud deployments should open data already available to the server through a
+path or mounted filesystem.
+
+
 ## Testing
 
 Run the unit tests with `pytest`:
