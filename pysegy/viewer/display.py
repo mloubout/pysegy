@@ -47,6 +47,24 @@ def selected_geometry_record(
     return None
 
 
+def validate_comparison_records(
+    indices: Iterable[int],
+    record_count: int,
+    *,
+    maximum: int = 4,
+) -> tuple[int, ...]:
+    """Validate and de-duplicate gathers selected for side-by-side display."""
+
+    selected = tuple(dict.fromkeys(int(index) for index in indices))
+    if len(selected) < 2:
+        raise ValueError("Select at least two gathers to compare")
+    if len(selected) > maximum:
+        raise ValueError(f"Select no more than {maximum} gathers")
+    if any(index < 0 or index >= record_count for index in selected):
+        raise IndexError("Comparison gather index is out of range")
+    return selected
+
+
 def plotly_colorscale(colormap, samples: int = 17) -> list[list[object]]:
     """Sample a Matplotlib-compatible colormap for use by Plotly.
 

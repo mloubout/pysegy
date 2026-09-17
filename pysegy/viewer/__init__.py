@@ -27,6 +27,7 @@ from .display import (
     prepare_wiggles,
     scaled_amplitudes,
     selected_geometry_record,
+    validate_comparison_records,
 )
 
 __all__ = [
@@ -50,4 +51,5 @@ __all__ = [
     "prepare_wiggles",
     "scaled_amplitudes",
     "selected_geometry_record",
+    "validate_comparison_records",
 ]

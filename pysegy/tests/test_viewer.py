@@ -29,6 +29,7 @@ from pysegy.viewer.display import (
     prepare_wiggles,
     scaled_amplitudes,
     selected_geometry_record,
+    validate_comparison_records,
 )
 
 
@@ -231,6 +232,16 @@ def test_geometry_selection_uses_only_gather_points():
     assert selected_geometry_record([
         {"curve_number": 0, "customdata": ["not-an-index"]}
     ]) is None
+
+
+def test_comparison_record_selection_is_bounded_and_unique():
+    assert validate_comparison_records([2, 2, 4], 6) == (2, 4)
+    with pytest.raises(ValueError, match="at least two"):
+        validate_comparison_records([1], 6)
+    with pytest.raises(ValueError, match="no more than 4"):
+        validate_comparison_records(range(5), 6)
+    with pytest.raises(IndexError, match="out of range"):
+        validate_comparison_records([0, 6], 6)
 
 
 def test_load_header_table_is_scaled_and_bounded(scan):

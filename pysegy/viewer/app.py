@@ -22,6 +22,7 @@ from pysegy.viewer.display import (
     prepare_wiggles,
     scaled_amplitudes,
     selected_geometry_record,
+    validate_comparison_records,
 )
 from pysegy.viewer.services import (
     DEFAULT_HEADER_FIELDS,
@@ -215,7 +216,7 @@ else:
     st.header(f"Gather {int(record_index) + 1:,}")
     gather_view = st.segmented_control(
         "Gather section",
-        ["Seismic", "Geometry & depth", "Trace headers"],
+        ["Seismic", "Compare gathers", "Geometry & depth", "Trace headers"],
         default="Seismic",
         key="gather_view",
         width="stretch",
@@ -581,6 +582,97 @@ if workspace == "Gather":
             if "depth" in record.rec_depth_key.lower():
                 depth_figure.update_yaxes(autorange="reversed")
             st.plotly_chart(depth_figure, width="stretch")
+
+    if gather_view == "Compare gathers":
+        st.subheader("Side-by-side gather comparison")
+        neighboring_record = min(int(record_index) + 1, len(scan) - 1)
+        if neighboring_record == int(record_index) and int(record_index) > 0:
+            neighboring_record -= 1
+        default_comparison = list(dict.fromkeys([
+            int(record_index), neighboring_record
+        ]))
+        selected_records = st.multiselect(
+            "Gathers to compare (2–4)",
+            options=range(len(scan)),
+            default=default_comparison,
+            format_func=lambda index: f"Gather {index + 1:,}",
+        )
+        compare_a, compare_b, compare_c = st.columns(3)
+        comparison_scale = compare_a.selectbox(
+            "Color scale",
+            list(SEISMIC_COLOR_SCALES),
+            key="comparison_scale",
+        )
+        comparison_percentile = compare_b.slider(
+            "Amplitude clipping [%]",
+            80,
+            100,
+            99,
+            key="comparison_percentile",
+        )
+        comparison_gain = compare_c.slider(
+            "Time gain exponent [dimensionless]",
+            0.0,
+            3.0,
+            0.0,
+            0.25,
+            key="comparison_gain",
+        )
+        try:
+            comparison_indices = validate_comparison_records(
+                selected_records, len(scan)
+            )
+            comparison_windows = [
+                load_gather(
+                    scan,
+                    index,
+                    max_traces=250,
+                    max_samples=1200,
+                )
+                for index in comparison_indices
+            ]
+            comparison_amplitudes = [
+                scaled_amplitudes(window, time_gain=comparison_gain)
+                for window in comparison_windows
+            ]
+            shared_limit = max(
+                amplitude_limit(values, comparison_percentile)
+                for values in comparison_amplitudes
+            )
+            comparison_columns = st.columns(len(comparison_indices))
+            for column_number, (index, window, values) in enumerate(zip(
+                comparison_indices,
+                comparison_windows,
+                comparison_amplitudes,
+            )):
+                comparison_record = scan[index]
+                comparison_source = navigation_geometry[index]
+                comparison_figure = go.Figure(go.Heatmap(
+                    z=values,
+                    x=window.trace_indices,
+                    y=window.time_seconds,
+                    colorscale=SEISMIC_COLOR_SCALES[comparison_scale],
+                    zmin=-shared_limit,
+                    zmax=shared_limit,
+                    showscale=column_number == len(comparison_indices) - 1,
+                    colorbar={"title": "Amplitude"},
+                ))
+                comparison_figure.update_layout(
+                    title=f"Gather {index + 1:,}",
+                    height=650,
+                    margin={"l": 55, "r": 20, "t": 50, "b": 50},
+                    xaxis_title="Trace number",
+                    yaxis_title="Time [s]" if column_number == 0 else None,
+                )
+                comparison_figure.update_yaxes(autorange="reversed")
+                with comparison_columns[column_number]:
+                    st.caption(
+                        f"X {comparison_source[0]:g}, Y {comparison_source[1]:g} "
+                        f"[{COORDINATE_UNITS}] · {comparison_record.ntraces:,} traces"
+                    )
+                    st.plotly_chart(comparison_figure, width="stretch")
+        except (ValueError, IndexError) as exc:
+            st.info(str(exc))
 
 if workspace == "Gather" and gather_view == "Trace headers":
     st.subheader("Trace headers")

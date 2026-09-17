@@ -81,6 +81,8 @@ coordinate, depth, interval, sample, frequency, and plot-size values include
 their units or are explicitly identified as scaled SEG-Y values/codes.
 Wiggle plots use a conventional black trace with blue negative-area fill and red
 positive-area fill, making polarity visible without relying on line position alone.
+The Gather workspace can also compare two to four gathers side by side with a
+shared amplitude limit, color scale, clipping percentile, and time gain.
 
 ## Testing
 
