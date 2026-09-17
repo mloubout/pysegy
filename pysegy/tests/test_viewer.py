@@ -5,13 +5,13 @@ import pytest
 
 from pysegy.viewer.services import (
     _decode_textual_header,
-    browse_directory,
     dataset_diagnostics,
     dataset_summary,
     file_header_info,
     gather_summary_values,
     load_gather,
     load_header_table,
+    open_native_file_dialog,
     receiver_attribute,
     scan_local_dataset,
     scan_local_dataset_cached,
@@ -84,39 +84,44 @@ def test_unreadable_textual_header_is_skipped():
     assert _decode_textual_header(b"short") is None
 
 
-def test_directory_browser_lists_segy_files_and_folders(tmp_path):
-    (tmp_path / "survey_b").mkdir()
-    (tmp_path / "survey_a").mkdir()
-    (tmp_path / ".private").mkdir()
-    (tmp_path / "line_b.SGY").write_bytes(b"")
-    (tmp_path / "line_a.segy").write_bytes(b"")
-    (tmp_path / "notes.txt").write_text("not seismic")
-
-    listing = browse_directory(str(tmp_path))
-
-    assert listing.path == str(tmp_path.resolve())
-    assert listing.parent == str(tmp_path.resolve().parent)
-    assert [entry.name for entry in listing.directories] == [
-        "survey_a", "survey_b"
-    ]
-    assert [entry.name for entry in listing.files] == [
-        "line_a.segy", "line_b.SGY"
-    ]
-    assert all(not entry.is_directory for entry in listing.files)
-
-
-def test_directory_browser_can_show_hidden_and_accept_file_path(tmp_path):
-    hidden = tmp_path / ".survey"
-    hidden.mkdir()
+def test_native_file_dialog_uses_macos_picker(monkeypatch, tmp_path):
     dataset = tmp_path / "line.segy"
-    dataset.write_bytes(b"")
+    captured = {}
 
-    listing = browse_directory(str(dataset), show_hidden=True)
+    def fake_run(command, **options):
+        captured["command"] = command
+        captured["options"] = options
+        return type("Result", (), {
+            "returncode": 0,
+            "stdout": f"{dataset}\n",
+        })()
 
-    assert listing.path == str(tmp_path.resolve())
-    assert [entry.name for entry in listing.directories] == [".survey"]
-    with pytest.raises(FileNotFoundError, match="Directory does not exist"):
-        browse_directory(str(tmp_path / "missing"))
+    monkeypatch.setattr("pysegy.viewer.services.platform.system", lambda: "Darwin")
+    monkeypatch.setattr("pysegy.viewer.services.subprocess.run", fake_run)
+
+    assert open_native_file_dialog() == str(dataset.resolve())
+    assert captured["command"][0] == "osascript"
+    assert captured["options"] == {
+        "capture_output": True,
+        "text": True,
+        "check": False,
+    }
+
+
+def test_native_file_dialog_handles_cancel_and_missing_linux_picker(monkeypatch):
+    monkeypatch.setattr("pysegy.viewer.services.platform.system", lambda: "Darwin")
+    monkeypatch.setattr(
+        "pysegy.viewer.services.subprocess.run",
+        lambda *args, **kwargs: type(
+            "Result", (), {"returncode": 1, "stdout": ""}
+        )(),
+    )
+    assert open_native_file_dialog() is None
+
+    monkeypatch.setattr("pysegy.viewer.services.platform.system", lambda: "Linux")
+    monkeypatch.setattr("pysegy.viewer.services.shutil.which", lambda name: None)
+    with pytest.raises(RuntimeError, match="No native file picker"):
+        open_native_file_dialog()
 
 
 def test_water_depth_geometry_values(scan):

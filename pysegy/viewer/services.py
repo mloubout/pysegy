@@ -1,7 +1,10 @@
 """Framework-independent operations used by the local dataset viewer."""
 
 from dataclasses import dataclass
+import platform
 from pathlib import Path
+import shutil
+import subprocess
 from typing import Dict, Iterable, Optional
 
 import numpy as np
@@ -22,62 +25,59 @@ DEFAULT_HEADER_FIELDS = (
     "Offset",
 )
 WATER_DEPTH_FIELDS = ("SourceWaterDepth", "GroupWaterDepth")
-SEGY_SUFFIXES = (".segy", ".sgy")
 
 
-@dataclass(frozen=True)
-class BrowserEntry:
-    """One filesystem entry displayed by the local path browser."""
+def open_native_file_dialog() -> Optional[str]:
+    """Open the operating system's file chooser and return its selection."""
 
-    name: str
-    path: str
-    is_directory: bool
-
-
-@dataclass(frozen=True)
-class DirectoryListing:
-    """A deterministic, display-ready listing of one local directory."""
-
-    path: str
-    parent: Optional[str]
-    directories: tuple[BrowserEntry, ...]
-    files: tuple[BrowserEntry, ...]
-
-
-def browse_directory(path: str, *, show_hidden: bool = False) -> DirectoryListing:
-    """List folders and SEG-Y files available to the local viewer process."""
-
-    requested = Path(path).expanduser()
-    directory = requested.parent if requested.is_file() else requested
-    directory = directory.resolve()
-    if not directory.exists():
-        raise FileNotFoundError(f"Directory does not exist: {directory}")
-    if not directory.is_dir():
-        raise NotADirectoryError(f"Not a directory: {directory}")
-
-    entries = [
-        entry for entry in directory.iterdir()
-        if show_hidden or not entry.name.startswith(".")
-    ]
-    directories = tuple(
-        BrowserEntry(entry.name, str(entry), True)
-        for entry in sorted(
-            (entry for entry in entries if entry.is_dir()),
-            key=lambda entry: entry.name.casefold(),
-        )
-    )
-    files = tuple(
-        BrowserEntry(entry.name, str(entry), False)
-        for entry in sorted(
+    system = platform.system()
+    if system == "Darwin":
+        command = [
+            "osascript",
+            "-e",
+            'POSIX path of (choose file with prompt "Open a SEG-Y file")',
+        ]
+    elif system == "Windows":
+        command = [
+            "powershell",
+            "-NoProfile",
+            "-Command",
             (
-                entry for entry in entries
-                if entry.is_file() and entry.suffix.lower() in SEGY_SUFFIXES
+                "Add-Type -AssemblyName System.Windows.Forms; "
+                "$dialog = New-Object System.Windows.Forms.OpenFileDialog; "
+                "$dialog.Filter = 'SEG-Y files (*.segy;*.sgy)|*.segy;*.sgy|"
+                "All files (*.*)|*.*'; "
+                "if ($dialog.ShowDialog() -eq 'OK') { $dialog.FileName }"
             ),
-            key=lambda entry: entry.name.casefold(),
+        ]
+    elif shutil.which("zenity"):
+        command = [
+            "zenity",
+            "--file-selection",
+            "--title=Open a SEG-Y file",
+            "--file-filter=SEG-Y files | *.segy *.sgy *.SEGY *.SGY",
+            "--file-filter=All files | *",
+        ]
+    elif shutil.which("kdialog"):
+        command = [
+            "kdialog",
+            "--getopenfilename",
+            str(Path.home()),
+            "SEG-Y files (*.segy *.sgy *.SEGY *.SGY)",
+            "--title",
+            "Open a SEG-Y file",
+        ]
+    else:
+        raise RuntimeError(
+            "No native file picker is available. Install zenity or kdialog, "
+            "or paste the dataset path manually."
         )
-    )
-    parent = None if directory.parent == directory else str(directory.parent)
-    return DirectoryListing(str(directory), parent, directories, files)
+
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        return None
+    selected = result.stdout.strip()
+    return str(Path(selected).expanduser().resolve()) if selected else None
 
 
 @dataclass(frozen=True)

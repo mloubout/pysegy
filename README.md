@@ -66,9 +66,10 @@ diagnostics tab checks source coordinates, duplicate and empty gathers, sample
 consistency, and water-depth metadata without reading trace samples.
 
 The sidebar has two cohesive workspaces rather than a flat collection of pages.
-Its local file browser navigates folders visible to the viewer process and can
-select either an individual `.segy`/`.sgy` file or the current survey directory;
-manual path entry remains available for mounted and network paths.
+The **Open file…** button uses the operating system's standard file chooser to
+select an individual SEG-Y file. Manual path entry remains available for survey
+directories, mounted volumes, and network paths. On Linux, the native chooser
+uses Zenity or KDialog when either is installed.
 **Survey** combines the survey summary and global geometry, with file headers and
 quality-control details available as secondary expandable sections. **Gather**
 keeps the seismic display primary and groups receiver geometry, depth profile,
