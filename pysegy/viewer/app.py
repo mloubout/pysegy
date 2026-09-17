@@ -37,6 +37,26 @@ from pysegy.viewer.services import (
 
 
 st.set_page_config(page_title="pysegy Viewer", layout="wide")
+st.markdown(
+    """
+    <style>
+    .block-container {max-width: 1500px; padding-top: 1.5rem;}
+    [data-testid="stSidebar"] {border-right: 1px solid #d8dde6;}
+    [data-testid="stMetric"] {
+        background: #f7f9fc;
+        border: 1px solid #d8dde6;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+    }
+    [data-testid="stExpander"] {
+        border-color: #d8dde6;
+        border-radius: 0.5rem;
+    }
+    h1, h2, h3 {letter-spacing: -0.02em;}
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 st.title("pysegy Viewer")
 st.caption("Explore local SEG-Y geometry and gathers without uploading your data.")
 
@@ -124,22 +144,11 @@ with st.sidebar:
     st.divider()
     st.header("Workspace")
     workspace = st.radio(
-        "Data scope",
-        ["Survey", "Gather", "File"],
+        "Workspace",
+        ["Survey", "Gather"],
         key="workspace",
+        label_visibility="collapsed",
     )
-    if workspace == "Survey":
-        survey_page = st.radio(
-            "Survey view",
-            ["Overview", "Geometry", "Quality control"],
-            key="survey_page",
-        )
-    elif workspace == "Gather":
-        gather_page = st.radio(
-            "Gather view",
-            ["Seismic data", "Receiver geometry", "Depth profile", "Trace headers"],
-            key="gather_page",
-        )
 
 record_index = int(st.session_state.record_index)
 if workspace == "Gather":
@@ -192,7 +201,7 @@ selected_source = navigation_geometry[int(record_index)]
 
 
 
-if workspace == "Survey" and survey_page == "Overview":
+if workspace == "Survey":
     st.header("Survey overview")
     summary = dataset_summary(scan)
     cols = st.columns(5)
@@ -205,27 +214,7 @@ if workspace == "Survey" and survey_page == "Overview":
         st.caption("Loaded unchanged scan metadata from the local cache.")
 
 
-if workspace == "File":
-    st.header("File headers")
-    header_info = file_header_info(scan)
-    if header_info.textual:
-        st.subheader("Textual file header")
-        with st.container(border=True):
-            st.text(header_info.textual)
-    else:
-        st.info("No readable ASCII or EBCDIC textual file header was found.")
-    st.subheader("Binary file header")
-    binary_frame = pd.DataFrame(
-        header_info.binary.items(), columns=["Field", "Value"]
-    )
-    st.dataframe(binary_frame, width="stretch", hide_index=True)
-    unique_paths = list(dict.fromkeys(scan.paths))
-    st.caption(
-        f"This combined scan contains {len(unique_paths):,} file(s). "
-        "The displayed file header is the header retained by the scan."
-    )
-
-if workspace == "Survey" and survey_page == "Geometry":
+if workspace == "Survey":
     st.header("Survey geometry")
     geometry = source_geometry(scan)
     frame = pd.DataFrame(geometry, columns=["x", "y", "depth"])
@@ -291,6 +280,27 @@ if workspace == "Survey" and survey_page == "Geometry":
         st.warning("No non-zero source or receiver coordinates were detected.")
 
 
+if workspace == "Survey":
+    with st.expander("File headers"):
+        header_info = file_header_info(scan)
+        if header_info.textual:
+            st.subheader("Textual file header")
+            with st.container(border=True):
+                st.text(header_info.textual)
+        else:
+            st.info("No readable ASCII or EBCDIC textual file header was found.")
+        st.subheader("Binary file header")
+        binary_frame = pd.DataFrame(
+            header_info.binary.items(), columns=["Field", "Value"]
+        )
+        st.dataframe(binary_frame, width="stretch", hide_index=True)
+        unique_paths = list(dict.fromkeys(scan.paths))
+        st.caption(
+            f"This combined scan contains {len(unique_paths):,} file(s). "
+            "The displayed file header is the header retained by the scan."
+        )
+
+
 if workspace == "Gather":
     st.subheader(f"Gather {int(record_index) + 1:,}")
     detail_cols = st.columns(4)
@@ -301,105 +311,105 @@ if workspace == "Gather":
         f"{selected_source[2]:g}",
     )
     detail_cols[3].metric("Traces", f"{record.ntraces:,}")
-    if gather_page == "Seismic data":
-        control_a, control_b = st.columns(2)
-        trace_range = control_a.slider(
-            "Trace range",
-            0,
-            record.ntraces,
-            (0, record.ntraces),
+    st.subheader("Seismic data")
+    control_a, control_b = st.columns(2)
+    trace_range = control_a.slider(
+        "Trace range",
+        0,
+        record.ntraces,
+        (0, record.ntraces),
+    )
+    sample_range = control_b.slider(
+        "Sample range",
+        0,
+        record.ns,
+        (0, record.ns),
+    )
+    display_a, display_b, display_c = st.columns(3)
+    display_mode = display_a.selectbox("Display", ["Image", "Wiggle"])
+    axis_mode = display_b.selectbox(
+        "Horizontal axis", ["Trace number", "Receiver X"]
+    )
+    color_scale = display_c.selectbox(
+        "Perceptual color scale", list(SEISMIC_COLOR_SCALES),
+        disabled=display_mode == "Wiggle",
+    )
+    gain_a, gain_b, gain_c, size_control = st.columns(4)
+    percentile = gain_a.slider("Amplitude percentile", 80, 100, 99)
+    time_gain = gain_b.slider("Time gain", 0.0, 3.0, 0.0, 0.25)
+    reverse_polarity = gain_c.toggle("Reverse polarity", value=False)
+    plot_height = size_control.slider(
+        "Plot height",
+        min_value=600,
+        max_value=1200,
+        value=850,
+        step=50,
+        help="Increase the vertical canvas for long seismic records.",
+    )
+    try:
+        window = load_gather(
+            scan,
+            int(record_index),
+            trace_start=trace_range[0],
+            trace_stop=trace_range[1],
+            sample_start=sample_range[0],
+            sample_stop=sample_range[1],
         )
-        sample_range = control_b.slider(
-            "Sample range",
-            0,
-            record.ns,
-            (0, record.ns),
+        amplitudes = scaled_amplitudes(
+            window,
+            time_gain=time_gain,
+            reverse_polarity=reverse_polarity,
         )
-        display_a, display_b, display_c = st.columns(3)
-        display_mode = display_a.selectbox("Display", ["Image", "Wiggle"])
-        axis_mode = display_b.selectbox(
-            "Horizontal axis", ["Trace number", "Receiver X"]
-        )
-        color_scale = display_c.selectbox(
-            "Perceptual color scale", list(SEISMIC_COLOR_SCALES),
-            disabled=display_mode == "Wiggle",
-        )
-        gain_a, gain_b, gain_c, size_control = st.columns(4)
-        percentile = gain_a.slider("Amplitude percentile", 80, 100, 99)
-        time_gain = gain_b.slider("Time gain", 0.0, 3.0, 0.0, 0.25)
-        reverse_polarity = gain_c.toggle("Reverse polarity", value=False)
-        plot_height = size_control.slider(
-            "Plot height",
-            min_value=600,
-            max_value=1200,
-            value=850,
-            step=50,
-            help="Increase the vertical canvas for long seismic records.",
-        )
-        try:
-            window = load_gather(
-                scan,
-                int(record_index),
-                trace_start=trace_range[0],
-                trace_stop=trace_range[1],
-                sample_start=sample_range[0],
-                sample_stop=sample_range[1],
-            )
-            amplitudes = scaled_amplitudes(
-                window,
-                time_gain=time_gain,
-                reverse_polarity=reverse_polarity,
-            )
-            x_values, x_title = horizontal_axis(window, axis_mode)
-            if display_mode == "Image":
-                limit = amplitude_limit(amplitudes, percentile)
-                figure = go.Figure(
-                    go.Heatmap(
-                        z=amplitudes,
-                        x=x_values,
-                        y=window.time_seconds,
-                        colorscale=SEISMIC_COLOR_SCALES[color_scale],
-                        zmin=-limit,
-                        zmax=limit,
-                        colorbar={"title": "Amplitude"},
-                    )
+        x_values, x_title = horizontal_axis(window, axis_mode)
+        if display_mode == "Image":
+            limit = amplitude_limit(amplitudes, percentile)
+            figure = go.Figure(
+                go.Heatmap(
+                    z=amplitudes,
+                    x=x_values,
+                    y=window.time_seconds,
+                    colorscale=SEISMIC_COLOR_SCALES[color_scale],
+                    zmin=-limit,
+                    zmax=limit,
+                    colorbar={"title": "Amplitude"},
                 )
-            else:
-                wiggles = prepare_wiggles(
-                    amplitudes,
-                    x_values,
-                    window.time_seconds,
-                )
-                figure = go.Figure()
-                for index, position in enumerate(wiggles.positions):
-                    figure.add_trace(go.Scattergl(
-                        x=wiggles.traces[:, index],
-                        y=wiggles.time_seconds,
-                        mode="lines",
-                        line={"color": "black", "width": 1},
-                        name=f"{position:g}",
-                        hovertemplate=(
-                            f"position={position:g}<br>time=%{{y:.4f}} s<extra></extra>"
-                        ),
-                        showlegend=False,
-                    ))
-            figure.update_layout(
-                autosize=True,
-                height=plot_height,
-                margin={"l": 65, "r": 35, "t": 35, "b": 60},
-                xaxis_title=x_title,
-                yaxis_title="Time [s]",
             )
-            figure.update_yaxes(autorange="reversed")
-            st.plotly_chart(figure, width="stretch")
-            st.caption(
-                f"Displaying {window.data.shape[1]:,} traces × "
-                f"{window.data.shape[0]:,} samples. Large selections are downsampled."
+        else:
+            wiggles = prepare_wiggles(
+                amplitudes,
+                x_values,
+                window.time_seconds,
             )
-        except Exception as exc:
-            st.error(f"Could not load this gather: {exc}")
+            figure = go.Figure()
+            for index, position in enumerate(wiggles.positions):
+                figure.add_trace(go.Scattergl(
+                    x=wiggles.traces[:, index],
+                    y=wiggles.time_seconds,
+                    mode="lines",
+                    line={"color": "black", "width": 1},
+                    name=f"{position:g}",
+                    hovertemplate=(
+                        f"position={position:g}<br>time=%{{y:.4f}} s<extra></extra>"
+                    ),
+                    showlegend=False,
+                ))
+        figure.update_layout(
+            autosize=True,
+            height=plot_height,
+            margin={"l": 65, "r": 35, "t": 35, "b": 60},
+            xaxis_title=x_title,
+            yaxis_title="Time [s]",
+        )
+        figure.update_yaxes(autorange="reversed")
+        st.plotly_chart(figure, width="stretch")
+        st.caption(
+            f"Displaying {window.data.shape[1]:,} traces × "
+            f"{window.data.shape[0]:,} samples. Large selections are downsampled."
+        )
+    except Exception as exc:
+        st.error(f"Could not load this gather: {exc}")
 
-    if gather_page == "Receiver geometry":
+    with st.expander("Receiver geometry"):
         receivers = record.rec_coordinates
         receiver_step = max(1, int(np.ceil(len(receivers) / 5000)))
         receivers_display = receivers[::receiver_step]
@@ -444,7 +454,7 @@ if workspace == "Gather":
         st.plotly_chart(receiver_figure, width="stretch")
 
 
-    if gather_page == "Depth profile":
+    with st.expander("Depth profile"):
         receivers = record.rec_coordinates
         source_depth = float(selected_source[2])
         depth_figure = go.Figure()
@@ -473,81 +483,81 @@ if workspace == "Gather":
             depth_figure.update_yaxes(autorange="reversed")
         st.plotly_chart(depth_figure, width="stretch")
 
-if workspace == "Gather" and gather_page == "Trace headers":
-    st.header(f"Gather {int(record_index) + 1:,} trace headers")
-    fields = st.multiselect(
-        "Header fields",
-        TH_FIELDS,
-        default=list(DEFAULT_HEADER_FIELDS),
-    )
-    try:
-        table = load_header_table(scan, int(record_index), fields)
-        header_frame = pd.DataFrame(table.columns)
-        header_frame.insert(0, "Trace", table.trace_indices)
-        st.dataframe(header_frame, width="stretch", hide_index=True)
-        st.download_button(
-            "Download displayed headers as CSV",
-            header_frame.to_csv(index=False),
-            file_name=f"gather-{int(record_index)}-headers.csv",
-            mime="text/csv",
+if workspace == "Gather":
+    with st.expander("Trace headers"):
+        fields = st.multiselect(
+            "Header fields",
+            TH_FIELDS,
+            default=list(DEFAULT_HEADER_FIELDS),
         )
-        if fields:
-            profile_a, profile_b = st.columns(2)
-            x_field = profile_a.selectbox(
-                "Horizontal profile field",
-                ["Trace", *fields],
+        try:
+            table = load_header_table(scan, int(record_index), fields)
+            header_frame = pd.DataFrame(table.columns)
+            header_frame.insert(0, "Trace", table.trace_indices)
+            st.dataframe(header_frame, width="stretch", hide_index=True)
+            st.download_button(
+                "Download displayed headers as CSV",
+                header_frame.to_csv(index=False),
+                file_name=f"gather-{int(record_index)}-headers.csv",
+                mime="text/csv",
             )
-            y_field = profile_b.selectbox(
-                "Header field to inspect",
-                fields,
-                index=fields.index("Offset") if "Offset" in fields else 0,
-            )
-            header_profile = go.Figure(go.Scattergl(
-                x=header_frame[x_field],
-                y=header_frame[y_field],
-                mode="lines" if x_field == "Trace" else "markers",
-                name=y_field,
-                hovertemplate=(
-                    f"{x_field}=%{{x:g}}<br>{y_field}=%{{y:g}}<extra></extra>"
-                ),
-            ))
-            header_profile.update_layout(
-                title=f"{y_field} profile",
-                xaxis_title=x_field,
-                yaxis_title=y_field,
-                height=520,
-            )
-            st.plotly_chart(header_profile, width="stretch")
-        if len(header_frame) < record.ntraces:
-            st.caption(
-                f"Showing {len(header_frame):,} evenly sampled rows from "
-                f"{record.ntraces:,} traces."
-            )
-    except Exception as exc:
-        st.error(f"Could not load trace headers: {exc}")
+            if fields:
+                profile_a, profile_b = st.columns(2)
+                x_field = profile_a.selectbox(
+                    "Horizontal profile field",
+                    ["Trace", *fields],
+                )
+                y_field = profile_b.selectbox(
+                    "Header field to inspect",
+                    fields,
+                    index=fields.index("Offset") if "Offset" in fields else 0,
+                )
+                header_profile = go.Figure(go.Scattergl(
+                    x=header_frame[x_field],
+                    y=header_frame[y_field],
+                    mode="lines" if x_field == "Trace" else "markers",
+                    name=y_field,
+                    hovertemplate=(
+                        f"{x_field}=%{{x:g}}<br>{y_field}=%{{y:g}}<extra></extra>"
+                    ),
+                ))
+                header_profile.update_layout(
+                    title=f"{y_field} profile",
+                    xaxis_title=x_field,
+                    yaxis_title=y_field,
+                    height=520,
+                )
+                st.plotly_chart(header_profile, width="stretch")
+            if len(header_frame) < record.ntraces:
+                st.caption(
+                    f"Showing {len(header_frame):,} evenly sampled rows from "
+                    f"{record.ntraces:,} traces."
+                )
+        except Exception as exc:
+            st.error(f"Could not load trace headers: {exc}")
 
-if workspace == "Survey" and survey_page == "Quality control":
-    st.header("Survey quality control")
-    diagnostics = dataset_diagnostics(scan)
-    bounds = diagnostics.coordinate_bounds
-    diagnostic_cols = st.columns(3)
-    diagnostic_cols[0].metric("Files", f"{diagnostics.files:,}")
-    diagnostic_cols[1].metric("Source X range", f"{bounds[0]:g} to {bounds[1]:g}")
-    diagnostic_cols[2].metric("Source Y range", f"{bounds[2]:g} to {bounds[3]:g}")
-    diagnostic_frame = pd.DataFrame([
-        {
-            "Check": check.check,
-            "Status": check.status,
-            "Details": check.details,
-        }
-        for check in diagnostics.checks
-    ])
-    st.dataframe(diagnostic_frame, width="stretch", hide_index=True)
-    warning_count = sum(check.status == "Warning" for check in diagnostics.checks)
-    if warning_count:
-        st.warning(
-            f"{warning_count} diagnostic check(s) need review. "
-            "Warnings can reflect valid acquisition geometry as well as bad headers."
-        )
-    else:
-        st.success("All metadata diagnostics passed.")
+if workspace == "Survey":
+    with st.expander("Survey quality control"):
+        diagnostics = dataset_diagnostics(scan)
+        bounds = diagnostics.coordinate_bounds
+        diagnostic_cols = st.columns(3)
+        diagnostic_cols[0].metric("Files", f"{diagnostics.files:,}")
+        diagnostic_cols[1].metric("Source X range", f"{bounds[0]:g} to {bounds[1]:g}")
+        diagnostic_cols[2].metric("Source Y range", f"{bounds[2]:g} to {bounds[3]:g}")
+        diagnostic_frame = pd.DataFrame([
+            {
+                "Check": check.check,
+                "Status": check.status,
+                "Details": check.details,
+            }
+            for check in diagnostics.checks
+        ])
+        st.dataframe(diagnostic_frame, width="stretch", hide_index=True)
+        warning_count = sum(check.status == "Warning" for check in diagnostics.checks)
+        if warning_count:
+            st.warning(
+                f"{warning_count} diagnostic check(s) need review. "
+                "Warnings can reflect valid acquisition geometry as well as bad headers."
+            )
+        else:
+            st.success("All metadata diagnostics passed.")
