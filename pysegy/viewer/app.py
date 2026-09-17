@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import plotly.io as pio
 from plotly.subplots import make_subplots
 import streamlit as st
 
@@ -39,29 +40,163 @@ from pysegy.viewer.services import (
 )
 
 
-st.set_page_config(page_title="pysegy Viewer", layout="wide")
+SITE_INK = "#494e52"
+SITE_ACCENT = "#52adc8"
+SITE_ACCENT_DARK = "#367f99"
+SITE_SURFACE = "#f5f6f6"
+SITE_BORDER = "#e5e7e9"
+
+pio.templates["pysegy_site"] = go.layout.Template(
+    layout={
+        "font": {
+            "family": "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            "color": SITE_INK,
+        },
+        "title": {"font": {"color": SITE_INK, "size": 20}},
+        "paper_bgcolor": "#ffffff",
+        "plot_bgcolor": "#ffffff",
+        "colorway": [SITE_ACCENT, "#f28e2b", "#4e79a7", "#59a14f"],
+        "xaxis": {
+            "gridcolor": "#edf0f2",
+            "linecolor": "#c7ccd1",
+            "zerolinecolor": "#d8dcdf",
+        },
+        "yaxis": {
+            "gridcolor": "#edf0f2",
+            "linecolor": "#c7ccd1",
+            "zerolinecolor": "#d8dcdf",
+        },
+        "legend": {"bgcolor": "rgba(255,255,255,0.88)"},
+    }
+)
+pio.templates.default = "plotly+pysegy_site"
+
+st.set_page_config(
+    page_title="pysegy Viewer",
+    page_icon="〰",
+    layout="wide",
+)
 st.markdown(
     """
     <style>
-    .block-container {max-width: 1500px; padding-top: 1.5rem;}
-    [data-testid="stSidebar"] {border-right: 1px solid #d8dde6;}
+    :root {
+        --site-ink: #494e52;
+        --site-muted: #7a8288;
+        --site-accent: #52adc8;
+        --site-accent-dark: #367f99;
+        --site-surface: #f5f6f6;
+        --site-border: #e5e7e9;
+    }
+    .stApp {
+        color: var(--site-ink);
+        background: #fff;
+    }
+    .block-container {
+        max-width: 1600px;
+        padding-top: 1rem;
+        padding-bottom: 3rem;
+    }
+    [data-testid="stSidebar"] {
+        background: var(--site-surface);
+        border-right: 1px solid var(--site-border);
+    }
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
+    [data-testid="stSidebar"] label {
+        color: var(--site-ink);
+    }
+    [data-testid="stSidebar"] h2 {
+        margin-top: .35rem;
+        padding-bottom: .35rem;
+        border-bottom: 2px solid var(--site-accent);
+        font-size: 1.05rem;
+        text-transform: uppercase;
+        letter-spacing: .08em;
+    }
     [data-testid="stMetric"] {
-        background: #f7f9fc;
-        border: 1px solid #d8dde6;
-        border-radius: 0.5rem;
+        background: var(--site-surface);
+        border: 0;
+        border-top: 3px solid var(--site-accent);
+        border-radius: 0.15rem;
         padding: 0.75rem 1rem;
     }
+    [data-testid="stMetricLabel"] {color: var(--site-muted);}
     [data-testid="stExpander"] {
-        border-color: #d8dde6;
-        border-radius: 0.5rem;
+        background: #fff;
+        border-color: var(--site-border);
+        border-radius: 0.15rem;
     }
-    h1, h2, h3 {letter-spacing: -0.02em;}
+    [data-testid="stButton"] button[kind="primary"] {
+        background: var(--site-accent-dark);
+        border-color: var(--site-accent-dark);
+    }
+    [data-testid="stButton"] button:not([kind="primary"]),
+    [data-testid="stDownloadButton"] button {
+        border-color: #b8c0c5;
+        color: var(--site-ink);
+    }
+    [data-testid="stButton"] button:hover,
+    [data-testid="stDownloadButton"] button:hover {
+        border-color: var(--site-accent);
+        color: var(--site-accent-dark);
+    }
+    [data-testid="stSegmentedControl"] button[aria-pressed="true"] {
+        background: var(--site-accent-dark);
+        color: #fff;
+    }
+    [data-testid="stDataFrame"] {
+        border: 1px solid var(--site-border);
+        border-radius: 0.15rem;
+    }
+    .viewer-masthead {
+        display: flex;
+        align-items: baseline;
+        gap: 1rem;
+        margin: -.15rem 0 1.25rem;
+        padding: .25rem 0 .9rem;
+        border-bottom: 1px solid var(--site-border);
+    }
+    .viewer-wordmark {
+        color: var(--site-ink);
+        font-size: 1.65rem;
+        font-weight: 700;
+        letter-spacing: -.035em;
+        line-height: 1;
+    }
+    .viewer-wordmark span {color: var(--site-accent-dark);}
+    .viewer-tagline {
+        color: var(--site-muted);
+        font-size: .95rem;
+    }
+    h1, h2, h3 {
+        color: var(--site-ink);
+        letter-spacing: -0.025em;
+    }
+    h1 {font-size: 2rem !important;}
+    h2 {
+        padding-bottom: .35rem;
+        border-bottom: 1px solid var(--site-border);
+    }
+    a {color: var(--site-accent-dark);}
+    div[data-baseweb="notification"] {border-radius: .15rem;}
+    @media (max-width: 700px) {
+        .viewer-masthead {display: block;}
+        .viewer-tagline {display: block; margin-top: .5rem;}
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
-st.title("pysegy Viewer")
-st.caption("Explore local SEG-Y geometry and gathers without uploading your data.")
+st.markdown(
+    """
+    <div class="viewer-masthead">
+      <div class="viewer-wordmark">py<span>segy</span></div>
+      <div class="viewer-tagline">
+        Local SEG-Y geometry, gather, and header exploration
+      </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
 
 SEISMIC_COLOR_SCALES = {
     "Perceptual gray": plotly_colorscale(cc.cm.CET_L1),
