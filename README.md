@@ -93,11 +93,11 @@ gain.
 ### Streamlit Community Cloud
 
 Deploy `pysegy/viewer/app.py` as the main module. The repository-level
-`requirements.txt` installs the core and viewer dependencies directly and
-keeps Community Cloud from interpreting the setuptools-based `pyproject.toml`
-as a Poetry project. The native file dialog is intended for local launches;
-cloud deployments should open data already available to the server through a
-path or mounted filesystem.
+`requirements.txt` installs the local `pysegy` package along with the core and
+viewer dependencies, while keeping Community Cloud from interpreting the
+setuptools-based `pyproject.toml` as a Poetry project. The native file dialog is
+intended for local launches; cloud deployments should open data already
+available to the server through a path or mounted filesystem.
 
 
 ## Testing
