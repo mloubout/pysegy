@@ -295,8 +295,6 @@ def set_record(index: int) -> None:
 
 navigation_geometry = source_geometry(scan)
 
-
-
 with st.sidebar:
     st.divider()
     st.header("Workspace")
@@ -374,8 +372,6 @@ else:
         key="gather_view",
         width="stretch",
     )
-
-
 
 if workspace == "Survey" and survey_view == "Overview":
     st.subheader("Overview")

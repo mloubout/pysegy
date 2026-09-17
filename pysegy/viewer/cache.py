@@ -2,11 +2,11 @@
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import pickle
+import sys
 from typing import Optional
-
-from platformdirs import user_cache_path
 
 from ..scan import SegyScan, load_scan, save_scan
 
@@ -16,7 +16,13 @@ CACHE_SCHEMA_VERSION = 2
 def default_cache_dir() -> Path:
     """Return the platform-appropriate viewer cache directory."""
 
-    return user_cache_path("pysegy", appauthor=False) / "viewer"
+    if sys.platform == "win32":
+        root = Path(os.getenv("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    elif sys.platform == "darwin":
+        root = Path.home() / "Library" / "Caches"
+    else:
+        root = Path(os.getenv("XDG_CACHE_HOME", Path.home() / ".cache"))
+    return root / "pysegy" / "viewer"
 
 
 def dataset_fingerprint(

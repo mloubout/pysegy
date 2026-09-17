@@ -31,7 +31,6 @@ dev = ["flake8", "flake8-pyproject"]
 viewer = [
     "colorcet>=3",
     "pandas>=2",
-    "platformdirs>=4",
     "plotly>=5",
     "streamlit>=1.50",
 ]
