@@ -25,6 +25,7 @@ from pysegy.viewer.display import (
     amplitude_limit,
     horizontal_axis,
     plotly_colorscale,
+    prepare_wiggle_fill,
     prepare_wiggles,
     scaled_amplitudes,
     selected_geometry_record,
@@ -204,6 +205,20 @@ def test_horizontal_axes_and_wiggle_limit(scan):
     assert len(wiggles.positions) == wiggles.traces.shape[1]
     with pytest.raises(ValueError, match="Unknown horizontal axis"):
         horizontal_axis(window, "Offset")
+
+
+def test_wiggle_fill_separates_positive_and_negative_amplitudes():
+    position = 10.0
+    trace = np.asarray([9.0, 10.0, 12.0, 8.0])
+    time = np.asarray([0.0, 0.1, 0.2, 0.3])
+    fill = prepare_wiggle_fill(trace, position, time)
+    assert np.all(fill.positive_x >= position)
+    assert np.all(fill.negative_x <= position)
+    assert fill.positive_x[0] == fill.positive_x[-1] == position
+    assert fill.negative_x[0] == fill.negative_x[-1] == position
+    assert len(fill.time_seconds) == len(trace) + 2
+    with pytest.raises(ValueError, match="matching vectors"):
+        prepare_wiggle_fill(trace, position, time[:-1])
 
 
 def test_geometry_selection_uses_only_gather_points():

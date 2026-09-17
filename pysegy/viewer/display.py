@@ -17,6 +17,15 @@ class WiggleData:
     time_seconds: np.ndarray
 
 
+@dataclass(frozen=True)
+class WiggleFill:
+    """Closed positive and negative fill polygons for one wiggle trace."""
+
+    positive_x: np.ndarray
+    negative_x: np.ndarray
+    time_seconds: np.ndarray
+
+
 def selected_geometry_record(
     points: Iterable[Mapping[str, Any]],
 ) -> Optional[int]:
@@ -170,3 +179,32 @@ def prepare_wiggles(
     peaks[peaks == 0.0] = 1.0
     normalized = values / peaks * spacing * width + positions
     return WiggleData(normalized, positions, np.asarray(time_seconds))
+
+
+def prepare_wiggle_fill(
+    trace: np.ndarray,
+    position: float,
+    time_seconds: np.ndarray,
+) -> WiggleFill:
+    """Create baseline-closed polygons for signed seismic wiggle fills."""
+
+    trace = np.asarray(trace, dtype=np.float64)
+    time_seconds = np.asarray(time_seconds, dtype=np.float64)
+    if trace.ndim != 1 or trace.shape != time_seconds.shape:
+        raise ValueError("Wiggle trace and time axis must be matching vectors")
+    if not trace.size:
+        raise ValueError("Wiggle fill requires at least one sample")
+    deviation = trace - position
+    positive = position + np.maximum(deviation, 0.0)
+    negative = position + np.minimum(deviation, 0.0)
+    polygon_time = np.concatenate((
+        time_seconds[:1],
+        time_seconds,
+        time_seconds[-1:],
+    ))
+    baseline = np.asarray([position], dtype=np.float64)
+    return WiggleFill(
+        positive_x=np.concatenate((baseline, positive, baseline)),
+        negative_x=np.concatenate((baseline, negative, baseline)),
+        time_seconds=polygon_time,
+    )

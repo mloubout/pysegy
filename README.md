@@ -79,6 +79,8 @@ full-width plot; gain and layout settings do not require opening a menu. The
 trace-header table and profile are separate side-by-side panels. Visible
 coordinate, depth, interval, sample, frequency, and plot-size values include
 their units or are explicitly identified as scaled SEG-Y values/codes.
+Wiggle plots use a conventional black trace with blue negative-area fill and red
+positive-area fill, making polarity visible without relying on line position alone.
 
 ## Testing
 

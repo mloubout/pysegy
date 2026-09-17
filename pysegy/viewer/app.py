@@ -18,6 +18,7 @@ from pysegy.viewer.display import (
     amplitude_limit,
     horizontal_axis,
     plotly_colorscale,
+    prepare_wiggle_fill,
     prepare_wiggles,
     scaled_amplitudes,
     selected_geometry_record,
@@ -440,6 +441,33 @@ if workspace == "Gather":
                 )
                 figure = go.Figure()
                 for index, position in enumerate(wiggles.positions):
+                    fill = prepare_wiggle_fill(
+                        wiggles.traces[:, index],
+                        position,
+                        wiggles.time_seconds,
+                    )
+                    figure.add_trace(go.Scattergl(
+                        x=fill.negative_x,
+                        y=fill.time_seconds,
+                        mode="lines",
+                        fill="toself",
+                        fillcolor="rgba(33, 102, 172, 0.75)",
+                        line={"width": 0},
+                        name="Negative amplitude",
+                        hoverinfo="skip",
+                        showlegend=index == 0,
+                    ))
+                    figure.add_trace(go.Scattergl(
+                        x=fill.positive_x,
+                        y=fill.time_seconds,
+                        mode="lines",
+                        fill="toself",
+                        fillcolor="rgba(215, 48, 39, 0.75)",
+                        line={"width": 0},
+                        name="Positive amplitude",
+                        hoverinfo="skip",
+                        showlegend=index == 0,
+                    ))
                     figure.add_trace(go.Scattergl(
                         x=wiggles.traces[:, index],
                         y=wiggles.time_seconds,
