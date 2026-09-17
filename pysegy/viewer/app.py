@@ -116,26 +116,60 @@ def step_record(delta: int) -> None:
     st.session_state.record_index = min(max(selected, 0), len(scan) - 1)
 
 
-previous_col, index_col, next_col = st.columns([1, 2, 1])
+def set_record(index: int) -> None:
+    """Jump to a gather from a widget callback."""
+
+    st.session_state.record_index = index
+
+
+navigation_geometry = source_geometry(scan)
+
+
+def record_label(index: int) -> str:
+    """Return a searchable, human-readable gather selector label."""
+
+    x, y, _ = navigation_geometry[index]
+    return (
+        f"#{index + 1:,} of {len(scan):,}  •  "
+        f"X {x:g}  •  Y {y:g}  •  {scan.counts[index]:,} traces"
+    )
+
+
+first_col, previous_col, index_col, next_col, last_col = st.columns(
+    [1, 1, 4, 1, 1]
+)
+first_col.button(
+    "⇤ First",
+    disabled=st.session_state.record_index == 0,
+    on_click=set_record,
+    args=(0,),
+    width="stretch",
+)
 previous_col.button(
-    "← Previous gather",
+    "← Previous",
     disabled=st.session_state.record_index == 0,
     on_click=step_record,
     args=(-1,),
     width="stretch",
 )
-record_index = index_col.number_input(
-    "Gather index",
-    min_value=0,
-    max_value=max(0, len(scan) - 1),
-    step=1,
+record_index = index_col.selectbox(
+    "Selected gather",
+    options=range(len(scan)),
+    format_func=record_label,
     key="record_index",
 )
 next_col.button(
-    "Next gather →",
+    "Next →",
     disabled=st.session_state.record_index == len(scan) - 1,
     on_click=step_record,
     args=(1,),
+    width="stretch",
+)
+last_col.button(
+    "Last ⇥",
+    disabled=st.session_state.record_index == len(scan) - 1,
+    on_click=set_record,
+    args=(len(scan) - 1,),
     width="stretch",
 )
 record = scan[int(record_index)]
@@ -201,42 +235,6 @@ with geometry_tab:
             0 if gather_color_label == "Gather depth" else None
         ),
     )
-    receivers = record.rec_coordinates
-    receiver_step = max(1, int(np.ceil(len(receivers) / 5000)))
-    receivers = receivers[::receiver_step]
-    receiver_color_label = st.selectbox(
-        "Color selected receivers by",
-        ["Receiver depth", "Source water depth", "Group water depth"],
-    )
-    if receiver_color_label == "Receiver depth":
-        receiver_colors = receivers[:, 2]
-    else:
-        receiver_field = {
-            "Source water depth": "SourceWaterDepth",
-            "Group water depth": "GroupWaterDepth",
-        }[receiver_color_label]
-        receiver_colors = receiver_attribute(
-            scan, int(record_index), receiver_field
-        )[::receiver_step]
-    figure.add_trace(
-        go.Scattergl(
-            x=receivers[:, 0],
-            y=receivers[:, 1],
-            mode="markers",
-            name="Selected gather receivers",
-            marker={
-                "size": 6,
-                "color": receiver_colors,
-                "colorscale": WATER_DEPTH_COLOR_SCALE,
-                "showscale": True,
-                "colorbar": {"title": receiver_color_label, "x": 1.15},
-            },
-            customdata=receivers[:, 2],
-            hovertemplate=(
-                "x=%{x}<br>y=%{y}<br>depth=%{customdata}<extra></extra>"
-            ),
-        )
-    )
     selected_source = geometry[int(record_index)]
     figure.add_trace(
         go.Scattergl(
@@ -269,30 +267,71 @@ with geometry_tab:
     if not geometry.size or not geometry[:, :2].any():
         st.warning("No non-zero source or receiver coordinates were detected.")
 
-    st.subheader("Water-depth profile")
-    water_field = st.selectbox(
-        "Water-depth field",
-        ["SourceWaterDepth", "GroupWaterDepth"],
+    st.subheader("Selected gather geometry")
+    receivers = record.rec_coordinates
+    receiver_step = max(1, int(np.ceil(len(receivers) / 5000)))
+    receivers_display = receivers[::receiver_step]
+    receiver_color_label = st.selectbox(
+        "Color receivers by",
+        ["Receiver depth", "Source water depth", "Group water depth"],
     )
-    water_depth = receiver_attribute(scan, int(record_index), water_field)
-    profile = pd.DataFrame({
-        "Receiver X": record.rec_coordinates[:, 0],
-        "Water depth": water_depth,
-        "Trace": np.arange(record.ntraces),
+    if receiver_color_label == "Receiver depth":
+        receiver_colors = receivers_display[:, 2]
+    else:
+        receiver_field = {
+            "Source water depth": "SourceWaterDepth",
+            "Group water depth": "GroupWaterDepth",
+        }[receiver_color_label]
+        receiver_colors = receiver_attribute(
+            scan, int(record_index), receiver_field
+        )[::receiver_step]
+    receiver_frame = pd.DataFrame({
+        "x": receivers_display[:, 0],
+        "y": receivers_display[:, 1],
+        "depth": receivers_display[:, 2],
+        "color": receiver_colors,
+        "trace": np.arange(0, record.ntraces, receiver_step),
     })
-    profile_figure = px.scatter(
-        profile,
-        x="Receiver X",
-        y="Water depth",
-        color="Water depth",
-        hover_data=["Trace"],
-        title=f"Selected gather — {water_field}",
+    receiver_figure = px.scatter(
+        receiver_frame,
+        x="x",
+        y="y",
+        color="color",
+        hover_data=["trace", "depth"],
+        labels={"color": receiver_color_label},
+        title="Receiver locations for the selected gather",
         color_continuous_scale=WATER_DEPTH_COLOR_SCALE,
     )
-    profile_figure.update_yaxes(autorange="reversed")
-    st.plotly_chart(profile_figure, width="stretch")
-    if not np.any(water_depth):
-        st.info(f"The selected gather contains no non-zero {water_field} values.")
+    receiver_figure.update_yaxes(scaleanchor="x", scaleratio=1)
+    st.plotly_chart(receiver_figure, width="stretch")
+
+    st.subheader("Acquisition depth profile")
+    source_depth = float(selected_source[2])
+    depth_figure = go.Figure()
+    depth_figure.add_trace(go.Scattergl(
+        x=receivers[:, 0],
+        y=receivers[:, 2],
+        mode="lines+markers",
+        name=f"Receiver: {record.rec_depth_key}",
+        customdata=np.arange(record.ntraces),
+        hovertemplate=(
+            "trace=%{customdata}<br>x=%{x:g}<br>depth=%{y:g}<extra></extra>"
+        ),
+    ))
+    depth_figure.add_hline(
+        y=source_depth,
+        line_dash="dash",
+        annotation_text=f"Source: {record.depth_key} = {source_depth:g}",
+        annotation_position="top left",
+    )
+    depth_figure.update_layout(
+        xaxis_title="Receiver X",
+        yaxis_title="Scaled depth / elevation",
+        legend_title="Header selected by pysegy",
+    )
+    if "depth" in record.rec_depth_key.lower():
+        depth_figure.update_yaxes(autorange="reversed")
+    st.plotly_chart(depth_figure, width="stretch")
 
 with gather_tab:
     control_a, control_b = st.columns(2)
@@ -410,9 +449,32 @@ with headers_tab:
             mime="text/csv",
         )
         if fields:
-            histogram_field = st.selectbox("Histogram field", fields)
-            histogram = px.histogram(header_frame, x=histogram_field)
-            st.plotly_chart(histogram, width="stretch")
+            profile_a, profile_b = st.columns(2)
+            x_field = profile_a.selectbox(
+                "Horizontal profile field",
+                ["Trace", *fields],
+            )
+            y_field = profile_b.selectbox(
+                "Header field to inspect",
+                fields,
+                index=fields.index("Offset") if "Offset" in fields else 0,
+            )
+            header_profile = go.Figure(go.Scattergl(
+                x=header_frame[x_field],
+                y=header_frame[y_field],
+                mode="lines" if x_field == "Trace" else "markers",
+                name=y_field,
+                hovertemplate=(
+                    f"{x_field}=%{{x:g}}<br>{y_field}=%{{y:g}}<extra></extra>"
+                ),
+            ))
+            header_profile.update_layout(
+                title=f"{y_field} profile",
+                xaxis_title=x_field,
+                yaxis_title=y_field,
+                height=520,
+            )
+            st.plotly_chart(header_profile, width="stretch")
         if len(header_frame) < record.ntraces:
             st.caption(
                 f"Showing {len(header_frame):,} evenly sampled rows from "
