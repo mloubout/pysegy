@@ -1,6 +1,7 @@
 """Streamlit application for local SEG-Y exploration."""
 
 import os
+from pathlib import Path
 
 import colorcet as cc
 import numpy as np
@@ -28,6 +29,7 @@ from pysegy.viewer.display import (
 )
 from pysegy.viewer.services import (
     DEFAULT_HEADER_FIELDS,
+    browse_directory,
     dataset_diagnostics,
     dataset_summary,
     file_header_info,
@@ -209,6 +211,88 @@ TRACE_COUNT_COLOR_SCALE = plotly_colorscale(cc.cm.fire)
 COORDINATE_UNITS = "scaled SEG-Y units"
 DEPTH_UNITS = "scaled depth/elevation units"
 
+
+def choose_dataset(path: str) -> None:
+    """Queue a browser selection without mutating an instantiated widget."""
+
+    st.session_state.pending_dataset_path = path
+    st.rerun()
+
+
+@st.dialog("Open local SEG-Y dataset", width="large")
+def show_file_browser() -> None:
+    """Browse files visible to the local viewer process."""
+
+    current = st.session_state.get("browser_directory", str(Path.home()))
+    show_hidden = st.toggle(
+        "Show hidden folders",
+        value=False,
+        key="browser_show_hidden",
+    )
+    try:
+        listing = browse_directory(current, show_hidden=show_hidden)
+    except (FileNotFoundError, NotADirectoryError, PermissionError) as exc:
+        st.error(str(exc))
+        if st.button("Return to home folder"):
+            st.session_state.browser_directory = str(Path.home())
+            st.rerun()
+        return
+
+    st.caption(listing.path)
+    action_left, action_right = st.columns(2)
+    action_left.button(
+        "Select this directory",
+        type="primary",
+        on_click=choose_dataset,
+        args=(listing.path,),
+        width="stretch",
+    )
+    if action_right.button(
+        "Up one folder",
+        disabled=listing.parent is None,
+        width="stretch",
+    ):
+        st.session_state.browser_directory = listing.parent
+        st.rerun()
+
+    st.markdown("#### Folders")
+    if listing.directories:
+        for start in range(0, len(listing.directories), 3):
+            columns = st.columns(3)
+            for column, entry in zip(
+                columns, listing.directories[start:start + 3]
+            ):
+                if column.button(
+                    f"📁 {entry.name}",
+                    key=f"browser-dir-{entry.path}",
+                    width="stretch",
+                ):
+                    st.session_state.browser_directory = entry.path
+                    st.rerun()
+    else:
+        st.caption("No folders are visible here.")
+
+    st.markdown("#### SEG-Y files")
+    if listing.files:
+        for entry in listing.files:
+            st.button(
+                f"〰 {entry.name}",
+                key=f"browser-file-{entry.path}",
+                on_click=choose_dataset,
+                args=(entry.path,),
+                width="stretch",
+            )
+    else:
+        st.caption("No .segy or .sgy files are visible in this folder.")
+
+
+pending_dataset_path = st.session_state.pop("pending_dataset_path", None)
+if pending_dataset_path is not None:
+    st.session_state.dataset_path = pending_dataset_path
+if "dataset_path" not in st.session_state:
+    st.session_state.dataset_path = os.getenv("PYSEGY_VIEWER_PATH", "")
+
+
 with st.sidebar:
     with st.expander(
         "Dataset",
@@ -216,8 +300,16 @@ with st.sidebar:
     ):
         path = st.text_input(
             "SEG-Y file or directory",
-            os.getenv("PYSEGY_VIEWER_PATH", ""),
+            key="dataset_path",
         )
+        if st.button("Browse local files…", width="stretch"):
+            candidate = Path(path).expanduser() if path else Path.home()
+            if candidate.is_file():
+                candidate = candidate.parent
+            if not candidate.is_dir():
+                candidate = Path.home()
+            st.session_state.browser_directory = str(candidate.resolve())
+            show_file_browser()
         pattern = st.text_input("Directory pattern", "*.segy")
         by_receiver = st.toggle("Group by receiver", value=False)
         use_cache = st.toggle("Cache scan metadata", value=True)

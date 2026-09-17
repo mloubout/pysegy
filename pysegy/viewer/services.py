@@ -22,6 +22,62 @@ DEFAULT_HEADER_FIELDS = (
     "Offset",
 )
 WATER_DEPTH_FIELDS = ("SourceWaterDepth", "GroupWaterDepth")
+SEGY_SUFFIXES = (".segy", ".sgy")
+
+
+@dataclass(frozen=True)
+class BrowserEntry:
+    """One filesystem entry displayed by the local path browser."""
+
+    name: str
+    path: str
+    is_directory: bool
+
+
+@dataclass(frozen=True)
+class DirectoryListing:
+    """A deterministic, display-ready listing of one local directory."""
+
+    path: str
+    parent: Optional[str]
+    directories: tuple[BrowserEntry, ...]
+    files: tuple[BrowserEntry, ...]
+
+
+def browse_directory(path: str, *, show_hidden: bool = False) -> DirectoryListing:
+    """List folders and SEG-Y files available to the local viewer process."""
+
+    requested = Path(path).expanduser()
+    directory = requested.parent if requested.is_file() else requested
+    directory = directory.resolve()
+    if not directory.exists():
+        raise FileNotFoundError(f"Directory does not exist: {directory}")
+    if not directory.is_dir():
+        raise NotADirectoryError(f"Not a directory: {directory}")
+
+    entries = [
+        entry for entry in directory.iterdir()
+        if show_hidden or not entry.name.startswith(".")
+    ]
+    directories = tuple(
+        BrowserEntry(entry.name, str(entry), True)
+        for entry in sorted(
+            (entry for entry in entries if entry.is_dir()),
+            key=lambda entry: entry.name.casefold(),
+        )
+    )
+    files = tuple(
+        BrowserEntry(entry.name, str(entry), False)
+        for entry in sorted(
+            (
+                entry for entry in entries
+                if entry.is_file() and entry.suffix.lower() in SEGY_SUFFIXES
+            ),
+            key=lambda entry: entry.name.casefold(),
+        )
+    )
+    parent = None if directory.parent == directory else str(directory.parent)
+    return DirectoryListing(str(directory), parent, directories, files)
 
 
 @dataclass(frozen=True)

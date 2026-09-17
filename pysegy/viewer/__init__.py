@@ -5,12 +5,15 @@ launch it with the ``pysegy-viewer`` command.
 """
 
 from .services import (
+    BrowserEntry,
+    DirectoryListing,
     DatasetSummary,
     DatasetDiagnostics,
     DiagnosticCheck,
     GatherWindow,
     HeaderTable,
     FileHeaderInfo,
+    browse_directory,
     dataset_diagnostics,
     dataset_summary,
     file_header_info,
@@ -31,12 +34,15 @@ from .display import (
 )
 
 __all__ = [
+    "BrowserEntry",
+    "DirectoryListing",
     "DatasetSummary",
     "DatasetDiagnostics",
     "DiagnosticCheck",
     "GatherWindow",
     "HeaderTable",
     "FileHeaderInfo",
+    "browse_directory",
     "dataset_diagnostics",
     "dataset_summary",
     "file_header_info",

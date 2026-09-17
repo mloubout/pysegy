@@ -66,6 +66,9 @@ diagnostics tab checks source coordinates, duplicate and empty gathers, sample
 consistency, and water-depth metadata without reading trace samples.
 
 The sidebar has two cohesive workspaces rather than a flat collection of pages.
+Its local file browser navigates folders visible to the viewer process and can
+select either an individual `.segy`/`.sgy` file or the current survey directory;
+manual path entry remains available for mounted and network paths.
 **Survey** combines the survey summary and global geometry, with file headers and
 quality-control details available as secondary expandable sections. **Gather**
 keeps the seismic display primary and groups receiver geometry, depth profile,

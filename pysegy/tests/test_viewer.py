@@ -5,6 +5,7 @@ import pytest
 
 from pysegy.viewer.services import (
     _decode_textual_header,
+    browse_directory,
     dataset_diagnostics,
     dataset_summary,
     file_header_info,
@@ -81,6 +82,41 @@ def test_unreadable_textual_header_is_skipped():
     raw = bytes(range(256)) * 12 + bytes(128)
     assert _decode_textual_header(raw) is None
     assert _decode_textual_header(b"short") is None
+
+
+def test_directory_browser_lists_segy_files_and_folders(tmp_path):
+    (tmp_path / "survey_b").mkdir()
+    (tmp_path / "survey_a").mkdir()
+    (tmp_path / ".private").mkdir()
+    (tmp_path / "line_b.SGY").write_bytes(b"")
+    (tmp_path / "line_a.segy").write_bytes(b"")
+    (tmp_path / "notes.txt").write_text("not seismic")
+
+    listing = browse_directory(str(tmp_path))
+
+    assert listing.path == str(tmp_path.resolve())
+    assert listing.parent == str(tmp_path.resolve().parent)
+    assert [entry.name for entry in listing.directories] == [
+        "survey_a", "survey_b"
+    ]
+    assert [entry.name for entry in listing.files] == [
+        "line_a.segy", "line_b.SGY"
+    ]
+    assert all(not entry.is_directory for entry in listing.files)
+
+
+def test_directory_browser_can_show_hidden_and_accept_file_path(tmp_path):
+    hidden = tmp_path / ".survey"
+    hidden.mkdir()
+    dataset = tmp_path / "line.segy"
+    dataset.write_bytes(b"")
+
+    listing = browse_directory(str(dataset), show_hidden=True)
+
+    assert listing.path == str(tmp_path.resolve())
+    assert [entry.name for entry in listing.directories] == [".survey"]
+    with pytest.raises(FileNotFoundError, match="Directory does not exist"):
+        browse_directory(str(tmp_path / "missing"))
 
 
 def test_water_depth_geometry_values(scan):
