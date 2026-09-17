@@ -96,17 +96,6 @@ if scan is None:
     st.info("Enter a local SEG-Y path and select **Scan dataset** to begin.")
     st.stop()
 
-summary = dataset_summary(scan)
-st.subheader("Survey summary")
-cols = st.columns(5)
-cols[0].metric("Gathers", f"{summary.records:,}")
-cols[1].metric("Traces", f"{summary.traces:,}")
-cols[2].metric("Samples / trace", f"{summary.samples_per_trace:,}")
-cols[3].metric("Sample interval", f"{summary.sample_interval_us:,} µs")
-cols[4].metric("Sample format", summary.sample_format)
-if st.session_state.get("cache_hit"):
-    st.caption("Loaded unchanged scan metadata from the local cache.")
-
 pending_record = st.session_state.pop("pending_record_index", None)
 if pending_record is not None:
     st.session_state.record_index = int(pending_record)
@@ -133,55 +122,91 @@ navigation_geometry = source_geometry(scan)
 
 with st.sidebar:
     st.divider()
-    st.header("Gather navigation")
-    record_index = st.selectbox(
-        "Selected gather",
-        options=range(len(scan)),
-        format_func=lambda index: f"Gather {index + 1:,}",
-        key="record_index",
+    st.header("Workspace")
+    workspace = st.radio(
+        "Data scope",
+        ["Survey", "Gather", "File"],
+        key="workspace",
     )
-    first_col, previous_col, next_col, last_col = st.columns(4)
-    first_col.button(
-        "⇤",
-        help="First gather",
-        disabled=st.session_state.record_index == 0,
-        on_click=set_record,
-        args=(0,),
-        width="stretch",
-    )
-    previous_col.button(
-        "←",
-        help="Previous gather",
-        disabled=st.session_state.record_index == 0,
-        on_click=step_record,
-        args=(-1,),
-        width="stretch",
-    )
-    next_col.button(
-        "→",
-        help="Next gather",
-        disabled=st.session_state.record_index == len(scan) - 1,
-        on_click=step_record,
-        args=(1,),
-        width="stretch",
-    )
-    last_col.button(
-        "⇥",
-        help="Last gather",
-        disabled=st.session_state.record_index == len(scan) - 1,
-        on_click=set_record,
-        args=(len(scan) - 1,),
-        width="stretch",
-    )
-    st.caption(f"Gather {int(record_index) + 1:,} of {len(scan):,}")
+    if workspace == "Survey":
+        survey_page = st.radio(
+            "Survey view",
+            ["Overview", "Geometry", "Quality control"],
+            key="survey_page",
+        )
+    elif workspace == "Gather":
+        gather_page = st.radio(
+            "Gather view",
+            ["Seismic data", "Receiver geometry", "Depth profile", "Trace headers"],
+            key="gather_page",
+        )
+
+record_index = int(st.session_state.record_index)
+if workspace == "Gather":
+    with st.sidebar:
+        st.divider()
+        st.header("Gather navigation")
+        record_index = st.selectbox(
+            "Selected gather",
+            options=range(len(scan)),
+            format_func=lambda index: f"Gather {index + 1:,}",
+            key="record_index",
+        )
+        first_col, previous_col, next_col, last_col = st.columns(4)
+        first_col.button(
+            "⇤",
+            help="First gather",
+            disabled=st.session_state.record_index == 0,
+            on_click=set_record,
+            args=(0,),
+            width="stretch",
+        )
+        previous_col.button(
+            "←",
+            help="Previous gather",
+            disabled=st.session_state.record_index == 0,
+            on_click=step_record,
+            args=(-1,),
+            width="stretch",
+        )
+        next_col.button(
+            "→",
+            help="Next gather",
+            disabled=st.session_state.record_index == len(scan) - 1,
+            on_click=step_record,
+            args=(1,),
+            width="stretch",
+        )
+        last_col.button(
+            "⇥",
+            help="Last gather",
+            disabled=st.session_state.record_index == len(scan) - 1,
+            on_click=set_record,
+            args=(len(scan) - 1,),
+            width="stretch",
+        )
+        st.caption(f"Gather {int(record_index) + 1:,} of {len(scan):,}")
+    record_index = int(st.session_state.record_index)
 record = scan[int(record_index)]
 selected_source = navigation_geometry[int(record_index)]
 
-geometry_tab, gather_tab, headers_tab, overview_tab, diagnostics_tab = st.tabs(
-    ["Survey", "Gather workspace", "Gather headers", "File headers", "Survey QC"]
-)
 
-with overview_tab:
+
+if workspace == "Survey" and survey_page == "Overview":
+    st.header("Survey overview")
+    summary = dataset_summary(scan)
+    cols = st.columns(5)
+    cols[0].metric("Gathers", f"{summary.records:,}")
+    cols[1].metric("Traces", f"{summary.traces:,}")
+    cols[2].metric("Samples / trace", f"{summary.samples_per_trace:,}")
+    cols[3].metric("Sample interval", f"{summary.sample_interval_us:,} µs")
+    cols[4].metric("Sample format", summary.sample_format)
+    if st.session_state.get("cache_hit"):
+        st.caption("Loaded unchanged scan metadata from the local cache.")
+
+
+if workspace == "File":
+    st.header("File headers")
     header_info = file_header_info(scan)
     if header_info.textual:
         st.subheader("Textual file header")
@@ -200,7 +225,8 @@ with overview_tab:
         "The displayed file header is the header retained by the scan."
     )
 
-with geometry_tab:
+if workspace == "Survey" and survey_page == "Geometry":
+    st.header("Survey geometry")
     geometry = source_geometry(scan)
     frame = pd.DataFrame(geometry, columns=["x", "y", "depth"])
     frame["record"] = range(len(frame))
@@ -265,7 +291,7 @@ with geometry_tab:
         st.warning("No non-zero source or receiver coordinates were detected.")
 
 
-with gather_tab:
+if workspace == "Gather":
     st.subheader(f"Gather {int(record_index) + 1:,}")
     detail_cols = st.columns(4)
     detail_cols[0].metric("Source X", f"{selected_source[0]:g}")
@@ -275,11 +301,7 @@ with gather_tab:
         f"{selected_source[2]:g}",
     )
     detail_cols[3].metric("Traces", f"{record.ntraces:,}")
-    seismic_tab, receiver_tab, depth_tab = st.tabs(
-        ["Seismic data", "Receiver geometry", "Depth profile"]
-    )
-
-    with seismic_tab:
+    if gather_page == "Seismic data":
         control_a, control_b = st.columns(2)
         trace_range = control_a.slider(
             "Trace range",
@@ -377,7 +399,7 @@ with gather_tab:
         except Exception as exc:
             st.error(f"Could not load this gather: {exc}")
 
-    with receiver_tab:
+    if gather_page == "Receiver geometry":
         receivers = record.rec_coordinates
         receiver_step = max(1, int(np.ceil(len(receivers) / 5000)))
         receivers_display = receivers[::receiver_step]
@@ -422,7 +444,8 @@ with gather_tab:
         st.plotly_chart(receiver_figure, width="stretch")
 
 
-    with depth_tab:
+    if gather_page == "Depth profile":
+        receivers = record.rec_coordinates
         source_depth = float(selected_source[2])
         depth_figure = go.Figure()
         depth_figure.add_trace(go.Scattergl(
@@ -450,7 +473,8 @@ with gather_tab:
             depth_figure.update_yaxes(autorange="reversed")
         st.plotly_chart(depth_figure, width="stretch")
 
-with headers_tab:
+if workspace == "Gather" and gather_page == "Trace headers":
+    st.header(f"Gather {int(record_index) + 1:,} trace headers")
     fields = st.multiselect(
         "Header fields",
         TH_FIELDS,
@@ -502,7 +526,8 @@ with headers_tab:
     except Exception as exc:
         st.error(f"Could not load trace headers: {exc}")
 
-with diagnostics_tab:
+if workspace == "Survey" and survey_page == "Quality control":
+    st.header("Survey quality control")
     diagnostics = dataset_diagnostics(scan)
     bounds = diagnostics.coordinate_bounds
     diagnostic_cols = st.columns(3)

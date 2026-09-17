@@ -65,14 +65,14 @@ it, or move through the survey with the previous and next gather controls. A
 diagnostics tab checks source coordinates, duplicate and empty gathers, sample
 consistency, and water-depth metadata without reading trace samples.
 
-Gather navigation lives in the sidebar and selects only a gather number; its
-coordinates, detected depth header, depth value, and trace count are shown in a
-separate description inside the gather workspace. Survey-level geometry is
-isolated in the Survey tab. All local views—seismic data, receiver geometry, and
-the depth profile—are grouped under the Gather workspace, while trace headers
-have an explicitly gather-scoped tab. Survey geometry uses only gather-level
-depth and trace-count fields, and trace headers are plotted as profiles rather
-than histograms.
+The sidebar provides hierarchical navigation rather than one row of unrelated
+tabs. Choose a data scope first: **Survey**, **Gather**, or **File**. Survey then
+offers overview, geometry, and quality-control pages; Gather offers seismic
+data, receiver geometry, depth profile, and trace-header pages. Gather selection
+appears only in the Gather scope and selects only a gather number. Coordinates,
+the detected depth header and value, and trace count are shown separately in the
+gather page. Survey geometry uses only gather-level depth and trace-count fields,
+and trace headers are plotted as profiles rather than histograms.
 
 ## Testing
 
