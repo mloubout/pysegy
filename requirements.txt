@@ -1,0 +1,11 @@
+# Streamlit Community Cloud installs this file instead of treating the
+# setuptools-based pyproject.toml as a Poetry project. Keep these constraints
+# aligned with the core and viewer dependency groups in pyproject.toml.
+numpy>=2,<3
+fsspec>=2024.3
+cloudpickle>=3
+matplotlib>=3.7
+colorcet>=3
+pandas>=2
+plotly>=5
+streamlit>=1.50
