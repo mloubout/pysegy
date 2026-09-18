@@ -1,7 +1,7 @@
-"""Local browser viewer for :mod:`pysegy` datasets.
+"""Local SEG-Y viewer and framework-independent viewer building blocks.
 
-The viewer is an optional component. Install it with ``pysegy[viewer]`` and
-launch it with the ``pysegy-viewer`` command.
+Install the optional dependencies with ``pysegy[viewer]`` and launch the local
+application with ``pysegy-viewer``.
 """
 
 from .services import (

@@ -226,6 +226,7 @@ with st.sidebar:
         path = st.text_input(
             "SEG-Y file or directory",
             key="dataset_path",
+            help="The path must be accessible to the machine running the viewer.",
         )
         if st.button("Open file…", width="stretch"):
             try:
@@ -270,7 +271,11 @@ if scan_clicked:
 
 scan = st.session_state.get("scan")
 if scan is None:
-    st.info("Enter a local SEG-Y path and select **Scan dataset** to begin.")
+    st.info(
+        "Enter a SEG-Y path on this Streamlit server and select "
+        "**Scan dataset**. To inspect files on your computer without uploading "
+        "them, run `pysegy-viewer` on that computer."
+    )
     st.stop()
 
 pending_record = st.session_state.pop("pending_record_index", None)
