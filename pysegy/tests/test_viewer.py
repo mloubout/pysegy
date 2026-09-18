@@ -5,6 +5,7 @@ import pytest
 
 from pysegy.viewer.services import (
     _decode_textual_header,
+    _normalize_dataset_path,
     dataset_diagnostics,
     dataset_summary,
     file_header_info,
@@ -17,7 +18,11 @@ from pysegy.viewer.services import (
     scan_local_dataset_cached,
     source_geometry,
 )
-from pysegy.viewer.cache import clear_cache, dataset_fingerprint, load_cached_scan
+from pysegy.viewer.cache import (
+    clear_cache,
+    dataset_fingerprint,
+    load_cached_scan,
+)
 from pysegy.viewer.display import (
     ORANGE_BLACK_COLORSCALE,
     RTM_COLORSCALE,
@@ -337,5 +342,19 @@ def test_corrupt_cache_is_discarded(tmp_path):
 
 
 def test_scan_local_dataset_rejects_missing_path(tmp_path):
-    with pytest.raises(FileNotFoundError, match="does not exist"):
+    with pytest.raises(FileNotFoundError, match="Dataset path does not exist"):
         scan_local_dataset(str(tmp_path / "missing.segy"))
+
+
+def test_dataset_path_normalization_handles_pasted_paths(tmp_path):
+    dataset = tmp_path / "line with spaces.segy"
+    dataset.touch()
+
+    assert _normalize_dataset_path(f"  {dataset}  ") == str(dataset.resolve())
+    assert _normalize_dataset_path(f'"{dataset}"') == str(dataset.resolve())
+    assert _normalize_dataset_path(f"'{dataset}'") == str(dataset.resolve())
+
+
+def test_dataset_path_normalization_rejects_blank_input():
+    with pytest.raises(ValueError, match="Enter a SEG-Y"):
+        _normalize_dataset_path("   ")

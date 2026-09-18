@@ -70,7 +70,7 @@ def open_native_file_dialog() -> Optional[str]:
     else:
         raise RuntimeError(
             "No native file picker is available. Install zenity or kdialog, "
-            "or paste the dataset path manually."
+            "or enter the dataset path manually."
         )
 
     result = subprocess.run(command, capture_output=True, text=True, check=False)
@@ -165,6 +165,21 @@ def file_header_info(scan: SegyScan) -> FileHeaderInfo:
     )
 
 
+def _normalize_dataset_path(path: str) -> str:
+    """Normalize a user-supplied dataset path."""
+
+    clean_path = path.strip()
+    if (
+        len(clean_path) >= 2
+        and clean_path[0] == clean_path[-1]
+        and clean_path[0] in {'"', "'"}
+    ):
+        clean_path = clean_path[1:-1].strip()
+    if not clean_path:
+        raise ValueError("Enter a SEG-Y file or directory path.")
+    return str(Path(clean_path).expanduser().resolve())
+
+
 def scan_local_dataset(
     path: str,
     *,
@@ -174,7 +189,7 @@ def scan_local_dataset(
 ) -> SegyScan:
     """Validate and scan a local SEG-Y file or directory."""
 
-    clean_path = str(Path(path).expanduser().resolve())
+    clean_path = _normalize_dataset_path(path)
     source = Path(clean_path)
     if not source.exists():
         raise FileNotFoundError(f"Dataset path does not exist: {clean_path}")
@@ -199,7 +214,7 @@ def scan_local_dataset_cached(
 ) -> tuple[SegyScan, bool]:
     """Scan a local dataset, reusing an unchanged metadata scan when possible."""
 
-    clean_path = str(Path(path).expanduser().resolve())
+    clean_path = _normalize_dataset_path(path)
     source = Path(clean_path)
     if not source.exists():
         raise FileNotFoundError(f"Dataset path does not exist: {clean_path}")
