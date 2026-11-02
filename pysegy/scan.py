@@ -71,14 +71,51 @@ class TraceData:
             block = self.record.read_data(keys=(), traces=slice(start, stop))
             block = block[:, ::step] if step != 1 else block
         else:
-            wanted = np.atleast_1d(traces)
-            first, last = int(np.min(wanted)), int(np.max(wanted))
-            block = self.record.read_data(keys=(), traces=slice(first, last + 1))
-            block = block[:, wanted - first]
+            wanted = self._trace_indices(traces)
+            if wanted.size == 0:
+                block = np.empty((self.shape[0], 0), dtype=self.dtype)
+            else:
+                first, last = int(np.min(wanted)), int(np.max(wanted))
+                block = self.record.read_data(keys=(), traces=slice(first, last + 1))
+                block = block[:, wanted - first]
             if np.isscalar(traces) or np.ndim(traces) == 0:
                 block = block[:, 0]
 
         return block[samples]
+
+    def _trace_indices(self, traces) -> np.ndarray:
+        """
+        The non-negative trace numbers an index other than a slice selects.
+
+        A boolean mask selects the traces where it is True, as it does on an
+        array, and must have one entry per trace.  Negative numbers count from
+        the last trace.  Both are turned into plain trace numbers before the
+        range to read is worked out from them: taken as they are, a mask reads
+        as the numbers 0 and 1 and a negative number as a range that runs
+        backwards, and either returns the wrong traces without an error.
+
+        Raises
+        ------
+        IndexError
+            If a mask does not have one entry per trace, or a number is out of
+            range.
+        """
+        wanted = np.atleast_1d(np.asarray(traces))
+        ntraces = self.shape[1]
+        if wanted.dtype == bool:
+            if wanted.shape != (ntraces,):
+                raise IndexError(
+                    f"boolean index of shape {wanted.shape} does not match the "
+                    f"{ntraces} traces of the record"
+                )
+            return np.flatnonzero(wanted)
+        wanted = wanted.astype(np.int64)
+        if np.any((wanted < -ntraces) | (wanted >= ntraces)):
+            raise IndexError(
+                f"trace index out of range for a record of {ntraces} traces: "
+                f"{wanted[(wanted < -ntraces) | (wanted >= ntraces)].tolist()}"
+            )
+        return np.where(wanted < 0, wanted + ntraces, wanted)
 
     def __repr__(self) -> str:
         return f"TraceData(ns={self.shape[0]}, traces={self.shape[1]})"

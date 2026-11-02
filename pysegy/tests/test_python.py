@@ -432,6 +432,22 @@ def test_data_indexing(tmp_path):
     assert np.array_equal(record.data[:, [1, 5, 6]], data[:, [1, 5, 6]])
     assert np.array_equal(record.data[:, 0:8:2], data[:, 0:8:2])
 
+    # A boolean mask and negative numbers select what they do on an array
+    mask = np.array([True, False, False, True, True, False, False, True])
+    assert np.array_equal(record.data[:, mask], data[:, mask])
+    assert np.array_equal(record.data[1:3, mask], data[1:3, mask])
+    assert np.array_equal(record.data[:, ~np.ones(8, dtype=bool)], data[:, :0])
+    assert np.array_equal(record.data[:, -1], data[:, -1])
+    assert np.array_equal(record.data[:, [-3, 0, -8]], data[:, [-3, 0, -8]])
+
+    # An index the array would refuse is refused too
+    with pytest.raises(IndexError, match="boolean index"):
+        record.data[:, mask[:5]]
+    with pytest.raises(IndexError, match="out of range"):
+        record.data[:, [2, 8]]
+    with pytest.raises(IndexError, match="out of range"):
+        record.data[:, -9]
+
     # Only the traces of the window are read
     reads = []
     record.read_data = lambda keys=None, traces=None: reads.append(traces) or data
